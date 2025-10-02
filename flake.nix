@@ -1,39 +1,19 @@
 {
-  description = "A robust Rust development environment";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    
-    # Add the community standard rust-overlay
-    rust-overlay.url = "github:oxalica/rust-overlay";
-  };
-
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        # Import the rust-overlay
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system;
-          inherit overlays;
-        };
-
-        # Use `rust.override` to add the `rust-src` extension
-        rustToolchain = pkgs.rust-bin.stable.latest.rust.override {
-          extensions = [ "rust-src" ];
-        };
-
-      in
+  description = "Rust flake";
+  inputs =
+    {
+      nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable"; # or whatever vers
+    };
+  
+  outputs = { self, nixpkgs, ... }@inputs:
+    let
+     system = "x86_64-linux"; # your version
+     pkgs = nixpkgs.legacyPackages.${system};    
+    in
+    {
+      devShells.${system}.default = pkgs.mkShell
       {
-        devShells.default = pkgs.mkShell {
-          buildInputs = [
-            # Add the complete toolchain
-            rustToolchain
-
-            # Add other tools, such as rust-analyzer
-            pkgs.rust-analyzer
-          ];
-        };
-      });
+        packages = with pkgs; [ rustc cargo rust-analyzer SDL2 SDL2_image SDL2_ttf SDL2_mixer ]; # whatever you need
+      };
+    };
 }
