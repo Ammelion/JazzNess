@@ -13,7 +13,7 @@
     {
       devShells.${system}.default = pkgs.mkShell
       {
-        packages = with pkgs; [ rustc cargo rust-analyzer SDL2 SDL2_image SDL2_ttf SDL2_mixer ]; # whatever you need
+        packages = with pkgs; [ rustc cargo rust-analyzer SDL2 SDL2_image SDL2_ttf SDL2_mixer rustup ]; # whatever you need
       };
     };
 }
