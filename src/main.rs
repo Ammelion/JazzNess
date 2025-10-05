@@ -1,20 +1,25 @@
+// src/main.rs
+
 pub mod cpu;
 pub mod opcodes;
 pub mod bus;
 
-use cpu::Mem;
-use cpu::CPU;
-use rand::Rng;
+// --- FIX 1: Add all the necessary `use` statements ---
 use bus::Bus;
+use cpu::CPU;
+use cpu::Mem; // Mem trait is needed for mem_write_u16
+use rand::Rng; // Rng trait is needed for gen_range
 
 use sdl2::event::Event;
 use sdl2::EventPump;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::pixels::PixelFormatEnum;
+use sdl2::pixels::PixelFormatEnum; // This was missing
 
 #[macro_use]
 extern crate lazy_static;
+
+// --- FIX 2: Restore the helper functions that were removed ---
 
 fn color(byte: u8) -> Color {
     match byte {
@@ -33,7 +38,7 @@ fn color(byte: u8) -> Color {
 fn read_screen_state(cpu: &CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
     let mut frame_idx = 0;
     let mut update = false;
-    for i in 0x0200..0x600 {
+    for i in 0x0200..=0x05FF { // Note: inclusive range to get all 1024 bytes
         let color_idx = cpu.mem_read(i as u16);
         let (b1, b2, b3) = color(color_idx).rgb();
         if frame[frame_idx] != b1 || frame[frame_idx + 1] != b2 || frame[frame_idx + 2] != b3 {
@@ -70,6 +75,7 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
+
 fn main() {
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
@@ -87,7 +93,7 @@ fn main() {
     let mut texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, 32, 32).unwrap();
     
-
+    // Game code is the same
     let game_code = vec![
         0x20, 0x06, 0x06, 0x20, 0x38, 0x06, 0x20, 0x0d, 0x06, 0x20, 0x2a, 0x06, 0x60, 0xa9, 0x02,
         0x85, 0x02, 0xa9, 0x04, 0x85, 0x03, 0xa9, 0x11, 0x85, 0x10, 0xa9, 0x10, 0x85, 0x12, 0xa9,
@@ -112,32 +118,47 @@ fn main() {
         0x60, 0xa6, 0xff, 0xea, 0xea, 0xca, 0xd0, 0xfb, 0x60,
     ];
 
-
-    //load the game
+    // --- FIX 3: Correctly load and initialize the CPU ---
     let bus = Bus::new();
     let mut cpu = CPU::new(bus);
-    cpu.load(game_code);
-    cpu.reset();
-    cpu.program_counter = 0x0600;
 
+    // The snake game code expects to be loaded at address 0x0600.
+    // Your `load` function hardcodes it to 0x0000, which is incorrect.
+    // Let's load it manually to the right place.
+    let start_address: u16 = 0x0600;
+    for (i, &byte) in game_code.iter().enumerate() {
+        cpu.mem_write(start_address + i as u16, byte);
+    }
+    
+    // Now, set the Reset Vector to point to our start address
+    cpu.mem_write_u16(0xFFFC, start_address);
+
+    // Reset the CPU. It will now read 0xFFFC and set its program counter to 0x0600.
+    cpu.reset();
+
+    // --- FIX 4: Implement a proper game loop ---
     let mut screen_state = [0 as u8; 32 * 3 * 32];
     let mut rng = rand::thread_rng();
 
-    // run the game cycle
-    cpu.run_with_callback(move |cpu| {
-        handle_user_input(cpu, &mut event_pump);
+    loop {
+        // Handle user input
+        handle_user_input(&mut cpu, &mut event_pump);
 
+        // Provide a random byte to the game code (as it expects)
         cpu.mem_write(0xfe, rng.gen_range(1..16));
 
-        if read_screen_state(cpu, &mut screen_state) {
+        // Run the CPU until it hits a BRK (0x00) instruction.
+        // This executes one "frame" of the game logic.
+        cpu.run();
+
+        // Read the screen state from memory and update the texture
+        if read_screen_state(&cpu, &mut screen_state) {
             texture.update(None, &screen_state, 32 * 3).unwrap();
-
             canvas.copy(&texture, None, None).unwrap();
-
             canvas.present();
         }
 
-        std::thread::sleep(std::time::Duration::new(0, 70_000));
-    });
-
+        // Wait a bit to control the game speed (e.g., for 60 FPS)
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
 }
