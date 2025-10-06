@@ -223,6 +223,147 @@ lazy_static! {
         OpCode::new(0x08, "PHP", 1, 3, AddressingMode::Implied),
         OpCode::new(0x68, "PLA", 1, 4, AddressingMode::Implied),
         OpCode::new(0x28, "PLP", 1, 4, AddressingMode::Implied),
+
+        OpCode::new(0x1A, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0x3A, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0x5A, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0x7A, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0xDA, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0xFA, "*NOP", 1, 2, AddressingMode::Implied),
+        OpCode::new(0x80, "*NOP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x82, "*NOP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x89, "*NOP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xC2, "*NOP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xE2, "*NOP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x04, "*NOP", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x44, "*NOP", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x64, "*NOP", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x14, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x34, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x54, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x74, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0xD4, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0xF4, "*NOP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x0C, "*NOP", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x1C, "*NOP", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0x3C, "*NOP", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0x5C, "*NOP", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0x7C, "*NOP", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0xDC, "*NOP", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0xFC, "*NOP", 3, 4, AddressingMode::Absolute_X),
+
+        // AAC (ANC)
+        OpCode::new(0x0B, "*AAC", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x2B, "*AAC", 2, 2, AddressingMode::Immediate),
+
+        // AAX (SAX)
+        OpCode::new(0x87, "*AAX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x97, "*AAX", 2, 4, AddressingMode::ZeroPage_Y),
+        OpCode::new(0x83, "*AAX", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0x8F, "*AAX", 3, 4, AddressingMode::Absolute),
+
+        // ARR
+        OpCode::new(0x6B, "*ARR", 2, 2, AddressingMode::Immediate),
+
+        // ASR
+        OpCode::new(0x4B, "*ASR", 2, 2, AddressingMode::Immediate),
+        
+        // ATX
+        OpCode::new(0xAB, "*ATX", 2, 2, AddressingMode::Immediate),
+
+        // AXA
+        OpCode::new(0x9F, "*AXA", 3, 5, AddressingMode::Absolute_Y),
+        OpCode::new(0x93, "*AXA", 2, 6, AddressingMode::Indirect_Y),
+
+        // AXS
+        OpCode::new(0xCB, "*AXS", 2, 2, AddressingMode::Immediate),
+
+        // DCP
+        OpCode::new(0xC7, "*DCP", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0xD7, "*DCP", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0xCF, "*DCP", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0xDF, "*DCP", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0xDB, "*DCP", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0xC3, "*DCP", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0xD3, "*DCP", 2, 8, AddressingMode::Indirect_Y),
+
+        // ISC
+        OpCode::new(0xE7, "*ISC", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0xF7, "*ISC", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0xEF, "*ISC", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0xFF, "*ISC", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0xFB, "*ISC", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0xE3, "*ISC", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0xF3, "*ISC", 2, 8, AddressingMode::Indirect_Y),
+
+        // KIL (JAM)
+        OpCode::new(0x02, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x12, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x22, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x32, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x42, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x52, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x62, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x72, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0x92, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0xB2, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0xD2, "*KIL", 1, 0, AddressingMode::Implied),
+        OpCode::new(0xF2, "*KIL", 1, 0, AddressingMode::Implied),
+
+        // LAR
+        OpCode::new(0xBB, "*LAR", 3, 4, AddressingMode::Absolute_Y),
+
+        // LAX
+        OpCode::new(0xA7, "*LAX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xB7, "*LAX", 2, 4, AddressingMode::ZeroPage_Y),
+        OpCode::new(0xAF, "*LAX", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xBF, "*LAX", 3, 4, AddressingMode::Absolute_Y),
+        OpCode::new(0xA3, "*LAX", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0xB3, "*LAX", 2, 5, AddressingMode::Indirect_Y),
+
+        // RLA
+        OpCode::new(0x27, "*RLA", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x37, "*RLA", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0x2F, "*RLA", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x3F, "*RLA", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0x3B, "*RLA", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0x23, "*RLA", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0x33, "*RLA", 2, 8, AddressingMode::Indirect_Y),
+
+        // RRA
+        OpCode::new(0x67, "*RRA", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x77, "*RRA", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0x6F, "*RRA", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x7F, "*RRA", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0x7B, "*RRA", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0x63, "*RRA", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0x73, "*RRA", 2, 8, AddressingMode::Indirect_Y),
+
+        // SBC
+        OpCode::new(0xEB, "*SBC", 2, 2, AddressingMode::Immediate),
+
+        // SLO
+        OpCode::new(0x07, "*SLO", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x17, "*SLO", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0x0F, "*SLO", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x1F, "*SLO", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0x1B, "*SLO", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0x03, "*SLO", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0x13, "*SLO", 2, 8, AddressingMode::Indirect_Y),
+
+        // SRE
+        OpCode::new(0x47, "*SRE", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x57, "*SRE", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0x4F, "*SRE", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x5F, "*SRE", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0x5B, "*SRE", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0x43, "*SRE", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0x53, "*SRE", 2, 8, AddressingMode::Indirect_Y),
+
+        OpCode::new(0x9E, "*SXA", 3, 5, AddressingMode::Absolute_Y),
+        OpCode::new(0x9C, "*SYA", 3, 5, AddressingMode::Absolute_X),
+        OpCode::new(0x8B, "*XAA", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x9B, "*XAS", 3, 5, AddressingMode::Absolute_Y),
     ];
 }
 
@@ -265,43 +406,67 @@ impl CPU {
 
     fn get_operand_address(&self, mode: &AddressingMode) -> u16 {
         match mode {
-            AddressingMode::Immediate => self.program_counter,
-            AddressingMode::ZeroPage => self.mem_read(self.program_counter) as u16,
-            AddressingMode::Absolute => self.mem_read_u16(self.program_counter),
-            AddressingMode::ZeroPage_X => self.mem_read(self.program_counter).wrapping_add(self.register_x) as u16,
-            AddressingMode::ZeroPage_Y => self.mem_read(self.program_counter).wrapping_add(self.register_y) as u16,
-            AddressingMode::Absolute_X => self.mem_read_u16(self.program_counter).wrapping_add(self.register_x as u16),
-            AddressingMode::Absolute_Y => self.mem_read_u16(self.program_counter).wrapping_add(self.register_y as u16),
+            AddressingMode::Immediate => self.program_counter + 1,
+
+            AddressingMode::ZeroPage => self.mem_read(self.program_counter + 1) as u16,
+
+            AddressingMode::Absolute => self.mem_read_u16(self.program_counter + 1),
+
+            AddressingMode::ZeroPage_X => {
+                let pos = self.mem_read(self.program_counter + 1);
+                pos.wrapping_add(self.register_x) as u16
+            }
+
+            AddressingMode::ZeroPage_Y => {
+                let pos = self.mem_read(self.program_counter + 1);
+                pos.wrapping_add(self.register_y) as u16
+            }
+
+            AddressingMode::Absolute_X => {
+                let base = self.mem_read_u16(self.program_counter + 1);
+                base.wrapping_add(self.register_x as u16)
+            }
+
+            AddressingMode::Absolute_Y => {
+                let base = self.mem_read_u16(self.program_counter + 1);
+                base.wrapping_add(self.register_y as u16)
+            }
+
             AddressingMode::Indirect => {
-                let ptr = self.mem_read_u16(self.program_counter);
+                let ptr = self.mem_read_u16(self.program_counter + 1);
+                // Emulate 6502 bug
                 if ptr & 0x00FF == 0x00FF {
                     let lo = self.mem_read(ptr);
                     let hi = self.mem_read(ptr & 0xFF00);
-                    (hi as u16) << 8 | lo as u16
+                    (hi as u16) << 8 | (lo as u16)
                 } else {
                     self.mem_read_u16(ptr)
                 }
             }
+
             AddressingMode::Indirect_X => {
-                let base = self.mem_read(self.program_counter);
-                let ptr = base.wrapping_add(self.register_x);
+                let base = self.mem_read(self.program_counter + 1);
+                let ptr: u8 = base.wrapping_add(self.register_x);
                 let lo = self.mem_read(ptr as u16);
                 let hi = self.mem_read(ptr.wrapping_add(1) as u16);
-                (hi as u16) << 8 | lo as u16
+                (hi as u16) << 8 | (lo as u16)
             }
+
             AddressingMode::Indirect_Y => {
-                let base = self.mem_read(self.program_counter);
+                let base = self.mem_read(self.program_counter + 1);
                 let lo = self.mem_read(base as u16);
                 let hi = self.mem_read(base.wrapping_add(1) as u16);
-                let deref_base = (hi as u16) << 8 | lo as u16;
+                let deref_base = (hi as u16) << 8 | (lo as u16);
                 deref_base.wrapping_add(self.register_y as u16)
             }
+            
             AddressingMode::Relative => {
-                let offset = self.mem_read(self.program_counter) as i8;
-                self.program_counter.wrapping_add(1).wrapping_add(offset as u16)
+                let offset = self.mem_read(self.program_counter + 1) as i8;
+                self.program_counter.wrapping_add(2).wrapping_add(offset as u16)
             }
+
             AddressingMode::Implied | AddressingMode::Accumulator => {
-                panic!("mode {:?} is not supported", mode);
+                panic!("mode {:?} is not supported for memory addressing", mode);
             }
         }
     }
@@ -392,224 +557,524 @@ impl CPU {
     where
         F: FnMut(&mut CPU),
     {
-        let opcodes: HashMap<u8, &'static OpCode> =
+        let ref opcodes: HashMap<u8, &'static OpCode> =
             CPU_OPCODES.iter().map(|op| (op.code, op)).collect();
 
         loop {
             callback(self);
+            
             let code = self.mem_read(self.program_counter);
-            self.program_counter += 1;
-            let pc_state = self.program_counter;
-
             let opcode_ref = opcodes
                 .get(&code)
                 .unwrap_or_else(|| panic!("OpCode {:x} is not recognized", code));
 
+            let pc_state = self.program_counter;
+
             let mode = &opcode_ref.mode;
             let name = opcode_ref.name;
-            let bytes = opcode_ref.bytes;
+            
+                match name {
+                    "BRK" => return,
+                    "NOP" => {}
 
-            match name {
-                "BRK" => return,
-                "NOP" => {}
+                    /* Load/Store */
+                    "LDA" => {
+                        self.register_a = self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+                    "LDX" => {
+                        self.register_x = self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    "LDY" => {
+                        self.register_y = self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_y);
+                    }
+                    "STA" => {
+                        self.set_operand(mode, self.register_a);
+                    }
+                    "STX" => {
+                        self.set_operand(mode, self.register_x);
+                    }
+                    "STY" => {
+                        self.set_operand(mode, self.register_y);
+                    }
 
-                /* Load/Store */
-                "LDA" => {
-                    self.register_a = self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
-                "LDX" => {
-                    self.register_x = self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_x);
-                }
-                "LDY" => {
-                    self.register_y = self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_y);
-                }
-                "STA" => {
-                    self.set_operand(mode, self.register_a);
-                }
-                "STX" => {
-                    self.set_operand(mode, self.register_x);
-                }
-                "STY" => {
-                    self.set_operand(mode, self.register_y);
-                }
+                    /* Arithmetic */
+                    "ADC" => self.adc(mode),
+                    "SBC" => self.sbc(mode),
+                    "AND" => {
+                        self.register_a &= self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+                    "EOR" => {
+                        self.register_a ^= self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+                    "ORA" => {
+                        self.register_a |= self.get_operand(mode);
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
 
-                /* Arithmetic */
-                "ADC" => self.adc(mode),
-                "SBC" => self.sbc(mode),
-                "AND" => {
-                    self.register_a &= self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
-                "EOR" => {
-                    self.register_a ^= self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
-                "ORA" => {
-                    self.register_a |= self.get_operand(mode);
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
+                    /* Shifts */
+                    "ASL" => {
+                        let mut val = self.get_operand(mode);
+                        self.set_flag(CARRY_FLAG, val & 0x80 != 0);
+                        val <<= 1;
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
+                    "LSR" => {
+                        let mut val = self.get_operand(mode);
+                        self.set_flag(CARRY_FLAG, val & 0x01 != 0);
+                        val >>= 1;
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
+                    "ROL" => {
+                        let mut val = self.get_operand(mode);
+                        let c = self.get_flag(CARRY_FLAG);
+                        self.set_flag(CARRY_FLAG, val & 0x80 != 0);
+                        val <<= 1;
+                        if c {
+                            val |= 1;
+                        };
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
+                    "ROR" => {
+                        let mut val = self.get_operand(mode);
+                        let c = self.get_flag(CARRY_FLAG);
+                        self.set_flag(CARRY_FLAG, val & 0x01 != 0);
+                        val >>= 1;
+                        if c {
+                            val |= 0x80;
+                        };
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
 
-                /* Shifts */
-                "ASL" => {
-                    let mut val = self.get_operand(mode);
-                    self.set_flag(CARRY_FLAG, val & 0x80 != 0);
-                    val <<= 1;
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
-                "LSR" => {
-                    let mut val = self.get_operand(mode);
-                    self.set_flag(CARRY_FLAG, val & 0x01 != 0);
-                    val >>= 1;
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
-                "ROL" => {
-                    let mut val = self.get_operand(mode);
-                    let c = self.get_flag(CARRY_FLAG);
-                    self.set_flag(CARRY_FLAG, val & 0x80 != 0);
-                    val <<= 1;
-                    if c {
-                        val |= 1;
-                    };
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
-                "ROR" => {
-                    let mut val = self.get_operand(mode);
-                    let c = self.get_flag(CARRY_FLAG);
-                    self.set_flag(CARRY_FLAG, val & 0x01 != 0);
-                    val >>= 1;
-                    if c {
-                        val |= 0x80;
-                    };
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
+                    /* INC/DEC */
+                    "INC" => {
+                        let mut val = self.get_operand(mode);
+                        val = val.wrapping_add(1);
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
+                    "INX" => {
+                        self.register_x = self.register_x.wrapping_add(1);
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    "INY" => {
+                        self.register_y = self.register_y.wrapping_add(1);
+                        self.update_zero_and_negative_flags(self.register_y);
+                    }
+                    "DEC" => {
+                        let mut val = self.get_operand(mode);
+                        val = val.wrapping_sub(1);
+                        self.set_operand(mode, val);
+                        self.update_zero_and_negative_flags(val);
+                    }
+                    "DEX" => {
+                        self.register_x = self.register_x.wrapping_sub(1);
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    "DEY" => {
+                        self.register_y = self.register_y.wrapping_sub(1);
+                        self.update_zero_and_negative_flags(self.register_y);
+                    }
 
-                /* INC/DEC */
-                "INC" => {
-                    let mut val = self.get_operand(mode);
-                    val = val.wrapping_add(1);
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
-                "INX" => {
-                    self.register_x = self.register_x.wrapping_add(1);
-                    self.update_zero_and_negative_flags(self.register_x);
-                }
-                "INY" => {
-                    self.register_y = self.register_y.wrapping_add(1);
-                    self.update_zero_and_negative_flags(self.register_y);
-                }
-                "DEC" => {
-                    let mut val = self.get_operand(mode);
-                    val = val.wrapping_sub(1);
-                    self.set_operand(mode, val);
-                    self.update_zero_and_negative_flags(val);
-                }
-                "DEX" => {
-                    self.register_x = self.register_x.wrapping_sub(1);
-                    self.update_zero_and_negative_flags(self.register_x);
-                }
-                "DEY" => {
-                    self.register_y = self.register_y.wrapping_sub(1);
-                    self.update_zero_and_negative_flags(self.register_y);
-                }
+                    /* Compare */
+                    "CMP" => self.compare(mode, self.register_a),
+                    "CPX" => self.compare(mode, self.register_x),
+                    "CPY" => self.compare(mode, self.register_y),
 
-                /* Compare */
-                "CMP" => self.compare(mode, self.register_a),
-                "CPX" => self.compare(mode, self.register_x),
-                "CPY" => self.compare(mode, self.register_y),
+                    /* Jumps */
+                    "JMP" => self.program_counter = self.get_operand_address(mode),
+                    "JSR" => {
+                        self.stack_push_u16(self.program_counter + 2);
+                        self.program_counter = self.get_operand_address(mode);
+                    }
+                    "RTS" => self.program_counter = self.stack_pull_u16().wrapping_add(1),
+                    "RTI" => {
+                        self.status = self.stack_pull();
+                        self.set_flag(BREAK_COMMAND, false);
+                        self.set_flag(BREAK_COMMAND_2, true);
+                        self.program_counter = self.stack_pull_u16();
+                    }
 
-                /* Jumps */
-                "JMP" => self.program_counter = self.get_operand_address(mode),
-                "JSR" => {
-                    self.stack_push_u16(self.program_counter + 2 - 1);
-                    self.program_counter = self.get_operand_address(mode);
-                }
-                "RTS" => self.program_counter = self.stack_pull_u16().wrapping_add(1),
-                "RTI" => {
-                    self.status = self.stack_pull();
-                    self.set_flag(BREAK_COMMAND, false);
-                    self.set_flag(BREAK_COMMAND_2, true);
-                    self.program_counter = self.stack_pull_u16();
-                }
+                    /* Branches */
+                    "BCC" => self.branch(!self.get_flag(CARRY_FLAG)),
+                    "BCS" => self.branch(self.get_flag(CARRY_FLAG)),
+                    "BEQ" => self.branch(self.get_flag(ZERO_FLAG)),
+                    "BNE" => self.branch(!self.get_flag(ZERO_FLAG)),
+                    "BMI" => self.branch(self.get_flag(NEGATIVE_FLAG)),
+                    "BPL" => self.branch(!self.get_flag(NEGATIVE_FLAG)),
+                    "BVC" => self.branch(!self.get_flag(OVERFLOW_FLAG)),
+                    "BVS" => self.branch(self.get_flag(OVERFLOW_FLAG)),
 
-                /* Branches */
-                "BCC" => self.branch(!self.get_flag(CARRY_FLAG)),
-                "BCS" => self.branch(self.get_flag(CARRY_FLAG)),
-                "BEQ" => self.branch(self.get_flag(ZERO_FLAG)),
-                "BNE" => self.branch(!self.get_flag(ZERO_FLAG)),
-                "BMI" => self.branch(self.get_flag(NEGATIVE_FLAG)),
-                "BPL" => self.branch(!self.get_flag(NEGATIVE_FLAG)),
-                "BVC" => self.branch(!self.get_flag(OVERFLOW_FLAG)),
-                "BVS" => self.branch(self.get_flag(OVERFLOW_FLAG)),
+                    /* Flags */
+                    "CLC" => self.set_flag(CARRY_FLAG, false),
+                    "CLD" => self.set_flag(DECIMAL_MODE, false),
+                    "CLI" => self.set_flag(INTERRUPT_DISABLE, false),
+                    "CLV" => self.set_flag(OVERFLOW_FLAG, false),
+                    "SEC" => self.set_flag(CARRY_FLAG, true),
+                    "SED" => self.set_flag(DECIMAL_MODE, true),
+                    "SEI" => self.set_flag(INTERRUPT_DISABLE, true),
 
-                /* Flags */
-                "CLC" => self.set_flag(CARRY_FLAG, false),
-                "CLD" => self.set_flag(DECIMAL_MODE, false),
-                "CLI" => self.set_flag(INTERRUPT_DISABLE, false),
-                "CLV" => self.set_flag(OVERFLOW_FLAG, false),
-                "SEC" => self.set_flag(CARRY_FLAG, true),
-                "SED" => self.set_flag(DECIMAL_MODE, true),
-                "SEI" => self.set_flag(INTERRUPT_DISABLE, true),
+                    /* Stack */
+                    "PHA" => self.stack_push(self.register_a),
+                    "PHP" => {
+                        self.stack_push(self.status | BREAK_COMMAND | BREAK_COMMAND_2);
+                    }
+                    "PLA" => {
+                        self.register_a = self.stack_pull();
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+                    "PLP" => {
+                        self.status = self.stack_pull();
+                        self.set_flag(BREAK_COMMAND, false);
+                        self.set_flag(BREAK_COMMAND_2, true);
+                    }
 
-                /* Stack */
-                "PHA" => self.stack_push(self.register_a),
-                "PHP" => {
-                    self.stack_push(self.status | BREAK_COMMAND | BREAK_COMMAND_2);
-                }
-                "PLA" => {
-                    self.register_a = self.stack_pull();
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
-                "PLP" => {
-                    self.status = self.stack_pull();
-                    self.set_flag(BREAK_COMMAND, false);
-                    self.set_flag(BREAK_COMMAND_2, true);
-                }
+                    /* Transfers */
+                    "TAX" => {
+                        self.register_x = self.register_a;
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    "TAY" => {
+                        self.register_y = self.register_a;
+                        self.update_zero_and_negative_flags(self.register_y);
+                    }
+                    "TSX" => {
+                        self.register_x = self.stack_pointer;
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    "TXA" => {
+                        self.register_a = self.register_x;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+                    "TXS" => self.stack_pointer = self.register_x,
+                    "TYA" => {
+                        self.register_a = self.register_y;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
 
-                /* Transfers */
-                "TAX" => {
-                    self.register_x = self.register_a;
-                    self.update_zero_and_negative_flags(self.register_x);
-                }
-                "TAY" => {
-                    self.register_y = self.register_a;
-                    self.update_zero_and_negative_flags(self.register_y);
-                }
-                "TSX" => {
-                    self.register_x = self.stack_pointer;
-                    self.update_zero_and_negative_flags(self.register_x);
-                }
-                "TXA" => {
-                    self.register_a = self.register_x;
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
-                "TXS" => self.stack_pointer = self.register_x,
-                "TYA" => {
-                    self.register_a = self.register_y;
-                    self.update_zero_and_negative_flags(self.register_a);
-                }
+                    /* Other */
+                    "BIT" => {
+                        let val = self.get_operand(mode);
+                        self.set_flag(ZERO_FLAG, (self.register_a & val) == 0);
+                        self.set_flag(NEGATIVE_FLAG, val & NEGATIVE_FLAG != 0);
+                        self.set_flag(OVERFLOW_FLAG, val & OVERFLOW_FLAG != 0);
+                    }
+                    "*NOP" => { }
 
-                /* Other */
-                "BIT" => {
-                    let val = self.get_operand(mode);
-                    self.set_flag(ZERO_FLAG, (self.register_a & val) == 0);
-                    self.set_flag(NEGATIVE_FLAG, val & NEGATIVE_FLAG != 0);
-                    self.set_flag(OVERFLOW_FLAG, val & OVERFLOW_FLAG != 0);
-                }
+                    "*KIL" => { panic!("KIL instruction executed."); }
 
-                _ => todo!(),
-            }
+                    "*SBC" => {
+                        self.sbc(mode);
+                    }
+
+                    "*AAC" => {
+                        // "AND byte with accumulator. If result is negative then carry is set."
+                        let value = self.get_operand(mode);
+                        self.register_a &= value;
+                        self.update_zero_and_negative_flags(self.register_a);
+                        if self.get_flag(NEGATIVE_FLAG) {
+                            self.set_flag(CARRY_FLAG, true);
+                        }
+                    }
+                    
+                    "*AAX" => {
+                        let value = self.register_a & self.register_x;
+                        self.set_operand(mode, value);
+                    }
+
+                    "*ARR" => {
+                        let value = self.get_operand(mode);
+                        self.register_a &= value;
+                        self.register_a = (self.register_a >> 1) | (if self.get_flag(CARRY_FLAG) { 0x80 } else { 0 });
+                        self.update_zero_and_negative_flags(self.register_a);
+
+                        let bit6 = (self.register_a & 0b0100_0000) != 0;
+                        let bit5 = (self.register_a & 0b0010_0000) != 0;
+
+                        match (bit6, bit5) {
+                            (true, true)   => { self.set_flag(CARRY_FLAG, true); self.set_flag(OVERFLOW_FLAG, false); },
+                            (false, false) => { self.set_flag(CARRY_FLAG, false); self.set_flag(OVERFLOW_FLAG, false); },
+                            (false, true)  => { self.set_flag(CARRY_FLAG, false); self.set_flag(OVERFLOW_FLAG, true); },
+                            (true, false)  => { self.set_flag(CARRY_FLAG, true); self.set_flag(OVERFLOW_FLAG, true); },
+                        }
+                    }
+
+                    "*ASR" => {
+                        // "AND byte with accumulator, then shift right one bit in accumulator."
+                        let value = self.get_operand(mode);
+                        self.register_a &= value;
+                        self.set_flag(CARRY_FLAG, (self.register_a & 0x01) != 0);
+                        self.register_a >>= 1;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*ATX" => {
+                        // "AND byte with accumulator, then transfer accumulator to X register."
+                        let value = self.get_operand(mode);
+                        self.register_a &= value;
+                        self.register_x = self.register_a;
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+                    
+                    "*AXA" => {
+                        let addr = self.get_operand_address(mode);
+                        let value = self.register_a & self.register_x & 7;
+                        self.mem_write(addr, value);
+                    }
+
+                    "*AXS" => {
+                        let value = self.get_operand(mode);
+                        let start_val = self.register_a & self.register_x;
+                        let (result, borrow) = start_val.overflowing_sub(value);
+                        self.register_x = result;
+                        self.set_flag(CARRY_FLAG, !borrow);
+                        self.update_zero_and_negative_flags(self.register_x);
+                    }
+
+                    "*DCP" => {
+                        let addr = self.get_operand_address(mode);
+                        let mut value = self.mem_read(addr);
+                        value = value.wrapping_sub(1);
+                        self.mem_write(addr, value);
+                        self.compare(mode, self.register_a);
+                    }
+
+                    "*ISC" => {
+                        let addr = self.get_operand_address(mode);
+                        let mut value = self.mem_read(addr);
+                        value = value.wrapping_add(1);
+                        self.mem_write(addr, value);
+                        self.sbc(&opcode_ref.mode); // Re-use SBC logic
+                    }
+                    
+                    "*LAR" => {
+                        let value = self.get_operand(mode);
+                        let result = self.stack_pointer & value;
+                        self.register_a = result;
+                        self.register_x = result;
+                        self.stack_pointer = result;
+                        self.update_zero_and_negative_flags(result);
+                    }
+
+                    "*LAX" => {
+                        // "Load accumulator and X register with memory."
+                        let value = self.get_operand(mode);
+                        self.register_a = value;
+                        self.register_x = value;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*RLA" => {
+                        // "Rotate one bit left in memory, then AND accumulator with memory."
+                        let addr = self.get_operand_address(mode);
+                        let mut data = self.mem_read(addr);
+                        let carry = self.get_flag(CARRY_FLAG);
+                        self.set_flag(CARRY_FLAG, (data & 0x80) != 0);
+                        data <<= 1;
+                        if carry {
+                            data |= 1;
+                        }
+                        self.mem_write(addr, data);
+                        self.register_a &= data;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*RRA" => {
+                        // "Rotate one bit right in memory, then add memory to accumulator (with carry)."
+                        let addr = self.get_operand_address(mode);
+                        let mut data = self.mem_read(addr);
+                        let carry = self.get_flag(CARRY_FLAG);
+                        self.set_flag(CARRY_FLAG, (data & 0x01) != 0);
+                        data >>= 1;
+                        if carry {
+                            data |= 0x80;
+                        }
+                        self.mem_write(addr, data);
+                        self.adc(&opcode_ref.mode); // Re-use ADC logic
+                    }
+                    
+                    "*SLO" => {
+                        // "Shift left one bit in memory, then OR accumulator with memory."
+                        let addr = self.get_operand_address(mode);
+                        let mut data = self.mem_read(addr);
+                        self.set_flag(CARRY_FLAG, (data & 0x80) != 0);
+                        data <<= 1;
+                        self.mem_write(addr, data);
+                        self.register_a |= data;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*SRE" => {
+                        // "Shift right one bit in memory, then EOR accumulator with memory."
+                        let addr = self.get_operand_address(mode);
+                        let mut data = self.mem_read(addr);
+                        self.set_flag(CARRY_FLAG, (data & 0x01) != 0);
+                        data >>= 1;
+                        self.mem_write(addr, data);
+                        self.register_a ^= data;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*SXA" => {
+                        // "M = X AND HIGH(arg) + 1"
+                        let addr = self.get_operand_address(mode);
+                        let high = (addr >> 8) as u8;
+                        let value = self.register_x & high.wrapping_add(1);
+                        self.mem_write(addr, value);
+                    }
+
+                    "*SYA" => {
+                        // "M = Y AND HIGH(arg) + 1"
+                        let addr = self.get_operand_address(mode);
+                        let high = (addr >> 8) as u8;
+                        let value = self.register_y & high.wrapping_add(1);
+                        self.mem_write(addr, value);
+                    }
+
+                    "*XAA" => {
+                        // "Exact operation unknown."
+                        // This implementation uses a common behavior for NES emulation (A = A & X & M).
+                        let value = self.get_operand(mode);
+                        self.register_a &= self.register_x & value;
+                        self.update_zero_and_negative_flags(self.register_a);
+                    }
+
+                    "*XAS" => {
+                        // "S = X AND A, M = S AND HIGH(arg) + 1"
+                        self.stack_pointer = self.register_a & self.register_x;
+                        let addr = self.get_operand_address(mode);
+                        let high = (addr >> 8) as u8;
+                        let value = self.stack_pointer & high.wrapping_add(1);
+                        self.mem_write(addr, value);
+                    }
+
+                    _ => todo!(),
+                }
 
             if pc_state == self.program_counter {
-                self.program_counter += (bytes - 1) as u16;
+                self.program_counter += opcode_ref.bytes as u16;
             }
         }
     }
+
+    pub fn trace(&self) -> String {
+        let opcodes: HashMap<u8, &'static OpCode> =
+            CPU_OPCODES.iter().map(|op| (op.code, op)).collect();
+
+        let code = self.mem_read(self.program_counter);
+        let opcode = opcodes.get(&code).unwrap();
+
+        let mut hex_dump = vec![code];
+        let pc = self.program_counter;
+        if opcode.bytes > 1 {
+            hex_dump.push(self.mem_read(pc + 1));
+        }
+        if opcode.bytes > 2 {
+            hex_dump.push(self.mem_read(pc + 2));
+        }
+
+        let hex_str = hex_dump
+            .iter()
+            .map(|z| format!("{:02X}", z))
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        let asm_str: String = match opcode.mode {
+            AddressingMode::Immediate => {
+                let value = self.mem_read(pc + 1);
+                format!("{} #${:02X}", opcode.name, value)
+            }
+            AddressingMode::ZeroPage => {
+                let addr = self.mem_read(pc + 1);
+                let value = self.mem_read(addr as u16);
+                format!("{} ${:02X} = {:02X}", opcode.name, addr, value)
+            }
+            AddressingMode::ZeroPage_X => {
+                let base = self.mem_read(pc + 1);
+                let addr = base.wrapping_add(self.register_x);
+                let value = self.mem_read(addr as u16);
+                format!("{} ${:02X},X @ {:02X} = {:02X}", opcode.name, base, addr, value)
+            }
+            AddressingMode::ZeroPage_Y => {
+                let base = self.mem_read(pc + 1);
+                let addr = base.wrapping_add(self.register_y);
+                let value = self.mem_read(addr as u16);
+                format!("{} ${:02X},Y @ {:02X} = {:02X}", opcode.name, base, addr, value)
+            }
+            AddressingMode::Absolute => {
+                let addr = self.mem_read_u16(pc + 1);
+                if opcode.name == "JMP" || opcode.name == "JSR" {
+                    format!("{} ${:04X}", opcode.name, addr)
+                } else {
+                    let value = self.mem_read(addr);
+                    format!("{} ${:04X} = {:02X}", opcode.name, addr, value)
+                }
+            }
+            AddressingMode::Absolute_X => {
+                let base = self.mem_read_u16(pc + 1);
+                let addr = base.wrapping_add(self.register_x as u16);
+                let value = self.mem_read(addr);
+                format!("{} ${:04X},X @ {:04X} = {:02X}", opcode.name, base, addr, value)
+            }
+            AddressingMode::Absolute_Y => {
+                let base = self.mem_read_u16(pc + 1);
+                let addr = base.wrapping_add(self.register_y as u16);
+                let value = self.mem_read(addr);
+                format!("{} ${:04X},Y @ {:04X} = {:02X}", opcode.name, base, addr, value)
+            }
+            AddressingMode::Indirect => {
+                let ptr_addr = self.mem_read_u16(pc + 1);
+                // Emulate 6502 indirect JMP bug
+                let final_addr = if ptr_addr & 0x00FF == 0x00FF {
+                    let lo = self.mem_read(ptr_addr);
+                    let hi = self.mem_read(ptr_addr & 0xFF00);
+                    (hi as u16) << 8 | (lo as u16)
+                } else {
+                    self.mem_read_u16(ptr_addr)
+                };
+                format!("{} (${:04X}) = {:04X}", opcode.name, ptr_addr, final_addr)
+            }
+            AddressingMode::Indirect_X => {
+                let base = self.mem_read(pc + 1);
+                let ptr = base.wrapping_add(self.register_x);
+                let addr = self.mem_read_u16(ptr as u16);
+                let value = self.mem_read(addr);
+                format!("{} (${:02X},X) @ {:02X} = {:04X} = {:02X}", opcode.name, base, ptr, addr, value)
+            }
+            AddressingMode::Indirect_Y => {
+                let base = self.mem_read(pc + 1);
+                let deref_base = self.mem_read_u16(base as u16);
+                let addr = deref_base.wrapping_add(self.register_y as u16);
+                let value = self.mem_read(addr);
+                format!("{} (${:02X}),Y = {:04X} @ {:04X} = {:02X}", opcode.name, base, deref_base, addr, value)
+            }
+            AddressingMode::Relative => {
+                let offset = self.mem_read(pc + 1) as i8;
+                let addr = pc.wrapping_add(2).wrapping_add(offset as u16);
+                format!("{} ${:04X}", opcode.name, addr)
+            }
+            AddressingMode::Implied | AddressingMode::Accumulator => format!("{}", opcode.name),
+        };
+
+        format!(
+            "{:04X}  {:8} {:<32} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}",
+            self.program_counter,
+            hex_str,
+            asm_str,
+            self.register_a,
+            self.register_x,
+            self.register_y,
+            self.status,
+            self.stack_pointer
+        )
+    }
+
 }
