@@ -1,4 +1,4 @@
-use crate::cartridge::Rom;
+use crate::cartridge::Rom; // Assuming cartridge.rs is in the same module
 
 pub trait Mem {
     fn mem_read(&self, addr: u16) -> u8;
@@ -18,15 +18,15 @@ pub trait Mem {
     }
 }
 
-pub struct Bus {
-    cpu_vram: [u8; 2048],
-    rom: Rom,
-}
-
 const RAM: u16 = 0x0000;
 const RAM_MIRRORS_END: u16 = 0x1FFF;
 const PPU_REGISTERS: u16 = 0x2000;
 const PPU_REGISTERS_MIRRORS_END: u16 = 0x3FFF;
+
+pub struct Bus {
+    cpu_vram: [u8; 2048],
+    rom: Rom,
+}
 
 impl Bus {
     pub fn new(rom: Rom) -> Self {
@@ -35,13 +35,12 @@ impl Bus {
             rom,
         }
     }
-
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
-        addr -= 0x8000;
-        if self.rom.prg_rom.len() == 0x4000 && addr >= 0x4000 {
-            addr %= 0x4000;
-        }
-        self.rom.prg_rom[addr as usize]
+            addr -= 0x8000;
+            if self.rom.prg_rom.len() == 0x4000 && addr >= 0x4000 {
+                addr %= 0x4000;
+            }
+            self.rom.prg_rom[addr as usize]
     }
 }
 
@@ -54,13 +53,10 @@ impl Mem for Bus {
             }
             PPU_REGISTERS..=PPU_REGISTERS_MIRRORS_END => {
                 let _mirror_down_addr = addr & 0x2007;
-                todo!("PPU is not supported yet");
+                todo!("PPU is not supported yet")
             }
-            0x8000..=0xFFFF => self.read_prg_rom(addr),
-            _ => {
-                println!("Ignoring mem read access at {}", addr);
-                0
-            }
+            0x8000..=0xFFFF => self.read_prg_rom(addr), // NEW
+            _ => 0,
         }
     }
 
@@ -74,12 +70,10 @@ impl Mem for Bus {
                 let _mirror_down_addr = addr & 0x2007;
                 todo!("PPU is not supported yet");
             }
-            0x8000..=0xFFFF => {
+            0x8000..=0xFFFF => { // NEW
                 panic!("Attempt to write to Cartridge ROM space");
             }
-            _ => {
-                println!("Ignoring mem write access at {}", addr);
-            }
+            _ => { /* Ignoring write */ }
         }
     }
 }

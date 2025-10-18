@@ -37,7 +37,7 @@ pub struct CPU {
     pub stack_pointer: u8,
     pub status: u8,
     pub program_counter: u16,
-    bus: Bus,
+    bus: Bus, // CHANGE: CPU now contains a Bus for memory access
 }
 
 pub struct OpCode {
@@ -48,15 +48,7 @@ pub struct OpCode {
     pub mode: AddressingMode,
 }
 
-impl Mem for CPU {
-    fn mem_read(&self, addr: u16) -> u8 {
-        self.bus.mem_read(addr)
-    }
-
-    fn mem_write(&mut self, addr: u16, data: u8) {
-        self.bus.mem_write(addr, data)
-    }
-}
+// NOTE: The `impl Mem for CPU` block is now removed as it's no longer needed.
 
 impl OpCode {
     fn new(code: u8, name: &'static str, bytes: u8, cycles: u8, mode: AddressingMode) -> Self {
@@ -224,6 +216,7 @@ lazy_static! {
         OpCode::new(0x68, "PLA", 1, 4, AddressingMode::Implied),
         OpCode::new(0x28, "PLP", 1, 4, AddressingMode::Implied),
 
+        // Unofficial Opcodes follow...
         OpCode::new(0x1A, "*NOP", 1, 2, AddressingMode::Implied),
         OpCode::new(0x3A, "*NOP", 1, 2, AddressingMode::Implied),
         OpCode::new(0x5A, "*NOP", 1, 2, AddressingMode::Implied),
@@ -251,34 +244,18 @@ lazy_static! {
         OpCode::new(0x7C, "*NOP", 3, 4, AddressingMode::Absolute_X),
         OpCode::new(0xDC, "*NOP", 3, 4, AddressingMode::Absolute_X),
         OpCode::new(0xFC, "*NOP", 3, 4, AddressingMode::Absolute_X),
-
-        // AAC (ANC)
         OpCode::new(0x0B, "*AAC", 2, 2, AddressingMode::Immediate),
         OpCode::new(0x2B, "*AAC", 2, 2, AddressingMode::Immediate),
-
-        // AAX (SAX)
-        OpCode::new(0x87, "*AAX", 2, 3, AddressingMode::ZeroPage),
-        OpCode::new(0x97, "*AAX", 2, 4, AddressingMode::ZeroPage_Y),
-        OpCode::new(0x83, "*AAX", 2, 6, AddressingMode::Indirect_X),
-        OpCode::new(0x8F, "*AAX", 3, 4, AddressingMode::Absolute),
-
-        // ARR
+        OpCode::new(0x87, "*SAX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x97, "*SAX", 2, 4, AddressingMode::ZeroPage_Y),
+        OpCode::new(0x83, "*SAX", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0x8F, "*SAX", 3, 4, AddressingMode::Absolute),
         OpCode::new(0x6B, "*ARR", 2, 2, AddressingMode::Immediate),
-
-        // ASR
         OpCode::new(0x4B, "*ASR", 2, 2, AddressingMode::Immediate),
-        
-        // ATX
         OpCode::new(0xAB, "*ATX", 2, 2, AddressingMode::Immediate),
-
-        // AXA
         OpCode::new(0x9F, "*AXA", 3, 5, AddressingMode::Absolute_Y),
         OpCode::new(0x93, "*AXA", 2, 6, AddressingMode::Indirect_Y),
-
-        // AXS
         OpCode::new(0xCB, "*AXS", 2, 2, AddressingMode::Immediate),
-
-        // DCP
         OpCode::new(0xC7, "*DCP", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0xD7, "*DCP", 2, 6, AddressingMode::ZeroPage_X),
         OpCode::new(0xCF, "*DCP", 3, 6, AddressingMode::Absolute),
@@ -286,17 +263,13 @@ lazy_static! {
         OpCode::new(0xDB, "*DCP", 3, 7, AddressingMode::Absolute_Y),
         OpCode::new(0xC3, "*DCP", 2, 8, AddressingMode::Indirect_X),
         OpCode::new(0xD3, "*DCP", 2, 8, AddressingMode::Indirect_Y),
-
-        // ISC
-        OpCode::new(0xE7, "*ISC", 2, 5, AddressingMode::ZeroPage),
-        OpCode::new(0xF7, "*ISC", 2, 6, AddressingMode::ZeroPage_X),
-        OpCode::new(0xEF, "*ISC", 3, 6, AddressingMode::Absolute),
-        OpCode::new(0xFF, "*ISC", 3, 7, AddressingMode::Absolute_X),
-        OpCode::new(0xFB, "*ISC", 3, 7, AddressingMode::Absolute_Y),
-        OpCode::new(0xE3, "*ISC", 2, 8, AddressingMode::Indirect_X),
-        OpCode::new(0xF3, "*ISC", 2, 8, AddressingMode::Indirect_Y),
-
-        // KIL (JAM)
+        OpCode::new(0xE7, "*ISB", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0xF7, "*ISB", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0xEF, "*ISB", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0xFF, "*ISB", 3, 7, AddressingMode::Absolute_X),
+        OpCode::new(0xFB, "*ISB", 3, 7, AddressingMode::Absolute_Y),
+        OpCode::new(0xE3, "*ISB", 2, 8, AddressingMode::Indirect_X),
+        OpCode::new(0xF3, "*ISB", 2, 8, AddressingMode::Indirect_Y),
         OpCode::new(0x02, "*KIL", 1, 0, AddressingMode::Implied),
         OpCode::new(0x12, "*KIL", 1, 0, AddressingMode::Implied),
         OpCode::new(0x22, "*KIL", 1, 0, AddressingMode::Implied),
@@ -309,19 +282,13 @@ lazy_static! {
         OpCode::new(0xB2, "*KIL", 1, 0, AddressingMode::Implied),
         OpCode::new(0xD2, "*KIL", 1, 0, AddressingMode::Implied),
         OpCode::new(0xF2, "*KIL", 1, 0, AddressingMode::Implied),
-
-        // LAR
         OpCode::new(0xBB, "*LAR", 3, 4, AddressingMode::Absolute_Y),
-
-        // LAX
         OpCode::new(0xA7, "*LAX", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0xB7, "*LAX", 2, 4, AddressingMode::ZeroPage_Y),
         OpCode::new(0xAF, "*LAX", 3, 4, AddressingMode::Absolute),
         OpCode::new(0xBF, "*LAX", 3, 4, AddressingMode::Absolute_Y),
         OpCode::new(0xA3, "*LAX", 2, 6, AddressingMode::Indirect_X),
         OpCode::new(0xB3, "*LAX", 2, 5, AddressingMode::Indirect_Y),
-
-        // RLA
         OpCode::new(0x27, "*RLA", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0x37, "*RLA", 2, 6, AddressingMode::ZeroPage_X),
         OpCode::new(0x2F, "*RLA", 3, 6, AddressingMode::Absolute),
@@ -329,8 +296,6 @@ lazy_static! {
         OpCode::new(0x3B, "*RLA", 3, 7, AddressingMode::Absolute_Y),
         OpCode::new(0x23, "*RLA", 2, 8, AddressingMode::Indirect_X),
         OpCode::new(0x33, "*RLA", 2, 8, AddressingMode::Indirect_Y),
-
-        // RRA
         OpCode::new(0x67, "*RRA", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0x77, "*RRA", 2, 6, AddressingMode::ZeroPage_X),
         OpCode::new(0x6F, "*RRA", 3, 6, AddressingMode::Absolute),
@@ -338,11 +303,7 @@ lazy_static! {
         OpCode::new(0x7B, "*RRA", 3, 7, AddressingMode::Absolute_Y),
         OpCode::new(0x63, "*RRA", 2, 8, AddressingMode::Indirect_X),
         OpCode::new(0x73, "*RRA", 2, 8, AddressingMode::Indirect_Y),
-
-        // SBC
         OpCode::new(0xEB, "*SBC", 2, 2, AddressingMode::Immediate),
-
-        // SLO
         OpCode::new(0x07, "*SLO", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0x17, "*SLO", 2, 6, AddressingMode::ZeroPage_X),
         OpCode::new(0x0F, "*SLO", 3, 6, AddressingMode::Absolute),
@@ -350,8 +311,6 @@ lazy_static! {
         OpCode::new(0x1B, "*SLO", 3, 7, AddressingMode::Absolute_Y),
         OpCode::new(0x03, "*SLO", 2, 8, AddressingMode::Indirect_X),
         OpCode::new(0x13, "*SLO", 2, 8, AddressingMode::Indirect_Y),
-
-        // SRE
         OpCode::new(0x47, "*SRE", 2, 5, AddressingMode::ZeroPage),
         OpCode::new(0x57, "*SRE", 2, 6, AddressingMode::ZeroPage_X),
         OpCode::new(0x4F, "*SRE", 3, 6, AddressingMode::Absolute),
@@ -359,7 +318,6 @@ lazy_static! {
         OpCode::new(0x5B, "*SRE", 3, 7, AddressingMode::Absolute_Y),
         OpCode::new(0x43, "*SRE", 2, 8, AddressingMode::Indirect_X),
         OpCode::new(0x53, "*SRE", 2, 8, AddressingMode::Indirect_Y),
-
         OpCode::new(0x9E, "*SXA", 3, 5, AddressingMode::Absolute_Y),
         OpCode::new(0x9C, "*SYA", 3, 5, AddressingMode::Absolute_X),
         OpCode::new(0x8B, "*XAA", 2, 2, AddressingMode::Immediate),
@@ -368,6 +326,7 @@ lazy_static! {
 }
 
 impl CPU {
+    // CHANGE: Constructor now takes a Bus
     pub fn new(bus: Bus) -> Self {
         CPU {
             register_a: 0,
@@ -380,15 +339,15 @@ impl CPU {
         }
     }
 
-    // --- Private Helper Methods that now use the Bus via the Mem trait ---
+    // --- Private Helper Methods now use the Bus ---
     fn stack_push(&mut self, data: u8) {
-        self.mem_write(0x0100 + self.stack_pointer as u16, data);
+        self.bus.mem_write(0x0100 + self.stack_pointer as u16, data);
         self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     }
 
     fn stack_pull(&mut self) -> u8 {
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
-        self.mem_read(0x0100 + self.stack_pointer as u16)
+        self.bus.mem_read(0x0100 + self.stack_pointer as u16)
     }
 
     fn stack_push_u16(&mut self, data: u16) {
@@ -408,60 +367,60 @@ impl CPU {
         match mode {
             AddressingMode::Immediate => self.program_counter + 1,
 
-            AddressingMode::ZeroPage => self.mem_read(self.program_counter + 1) as u16,
+            AddressingMode::ZeroPage => self.bus.mem_read(self.program_counter + 1) as u16,
 
-            AddressingMode::Absolute => self.mem_read_u16(self.program_counter + 1),
+            AddressingMode::Absolute => self.bus.mem_read_u16(self.program_counter + 1),
 
             AddressingMode::ZeroPage_X => {
-                let pos = self.mem_read(self.program_counter + 1);
+                let pos = self.bus.mem_read(self.program_counter + 1);
                 pos.wrapping_add(self.register_x) as u16
             }
 
             AddressingMode::ZeroPage_Y => {
-                let pos = self.mem_read(self.program_counter + 1);
+                let pos = self.bus.mem_read(self.program_counter + 1);
                 pos.wrapping_add(self.register_y) as u16
             }
 
             AddressingMode::Absolute_X => {
-                let base = self.mem_read_u16(self.program_counter + 1);
+                let base = self.bus.mem_read_u16(self.program_counter + 1);
                 base.wrapping_add(self.register_x as u16)
             }
 
             AddressingMode::Absolute_Y => {
-                let base = self.mem_read_u16(self.program_counter + 1);
+                let base = self.bus.mem_read_u16(self.program_counter + 1);
                 base.wrapping_add(self.register_y as u16)
             }
 
             AddressingMode::Indirect => {
-                let ptr = self.mem_read_u16(self.program_counter + 1);
+                let ptr = self.bus.mem_read_u16(self.program_counter + 1);
                 // Emulate 6502 bug
                 if ptr & 0x00FF == 0x00FF {
-                    let lo = self.mem_read(ptr);
-                    let hi = self.mem_read(ptr & 0xFF00);
+                    let lo = self.bus.mem_read(ptr);
+                    let hi = self.bus.mem_read(ptr & 0xFF00);
                     (hi as u16) << 8 | (lo as u16)
                 } else {
-                    self.mem_read_u16(ptr)
+                    self.bus.mem_read_u16(ptr)
                 }
             }
 
             AddressingMode::Indirect_X => {
-                let base = self.mem_read(self.program_counter + 1);
+                let base = self.bus.mem_read(self.program_counter + 1);
                 let ptr: u8 = base.wrapping_add(self.register_x);
-                let lo = self.mem_read(ptr as u16);
-                let hi = self.mem_read(ptr.wrapping_add(1) as u16);
+                let lo = self.bus.mem_read(ptr as u16);
+                let hi = self.bus.mem_read(ptr.wrapping_add(1) as u16);
                 (hi as u16) << 8 | (lo as u16)
             }
 
             AddressingMode::Indirect_Y => {
-                let base = self.mem_read(self.program_counter + 1);
-                let lo = self.mem_read(base as u16);
-                let hi = self.mem_read(base.wrapping_add(1) as u16);
+                let base = self.bus.mem_read(self.program_counter + 1);
+                let lo = self.bus.mem_read(base as u16);
+                let hi = self.bus.mem_read(base.wrapping_add(1) as u16);
                 let deref_base = (hi as u16) << 8 | (lo as u16);
                 deref_base.wrapping_add(self.register_y as u16)
             }
             
             AddressingMode::Relative => {
-                let offset = self.mem_read(self.program_counter + 1) as i8;
+                let offset = self.bus.mem_read(self.program_counter + 1) as i8;
                 self.program_counter.wrapping_add(2).wrapping_add(offset as u16)
             }
 
@@ -474,7 +433,7 @@ impl CPU {
     fn get_operand(&self, mode: &AddressingMode) -> u8 {
         match mode {
             AddressingMode::Accumulator => self.register_a,
-            _ => self.mem_read(self.get_operand_address(mode)),
+            _ => self.bus.mem_read(self.get_operand_address(mode)),
         }
     }
 
@@ -483,7 +442,7 @@ impl CPU {
             AddressingMode::Accumulator => self.register_a = value,
             _ => {
                 let addr = self.get_operand_address(mode);
-                self.mem_write(addr, value);
+                self.bus.mem_write(addr, value);
             }
         }
     }
@@ -511,7 +470,7 @@ impl CPU {
         self.register_y = 0;
         self.stack_pointer = 0xFD;
         self.status = INTERRUPT_DISABLE | BREAK_COMMAND_2;
-        self.program_counter = self.mem_read_u16(0xFFFC);
+        self.program_counter = self.bus.mem_read_u16(0xFFFC);
     }
 
     fn branch(&mut self, condition: bool) {
@@ -563,7 +522,7 @@ impl CPU {
         loop {
             callback(self);
             
-            let code = self.mem_read(self.program_counter);
+            let code = self.bus.mem_read(self.program_counter);
             let opcode_ref = opcodes
                 .get(&code)
                 .unwrap_or_else(|| panic!("OpCode {:x} is not recognized", code));
@@ -776,7 +735,6 @@ impl CPU {
                     }
 
                     "*AAC" => {
-                        // "AND byte with accumulator. If result is negative then carry is set."
                         let value = self.get_operand(mode);
                         self.register_a &= value;
                         self.update_zero_and_negative_flags(self.register_a);
@@ -785,7 +743,7 @@ impl CPU {
                         }
                     }
                     
-                    "*AAX" => {
+                    "*SAX" => {
                         let value = self.register_a & self.register_x;
                         self.set_operand(mode, value);
                     }
@@ -808,7 +766,6 @@ impl CPU {
                     }
 
                     "*ASR" => {
-                        // "AND byte with accumulator, then shift right one bit in accumulator."
                         let value = self.get_operand(mode);
                         self.register_a &= value;
                         self.set_flag(CARRY_FLAG, (self.register_a & 0x01) != 0);
@@ -817,7 +774,6 @@ impl CPU {
                     }
 
                     "*ATX" => {
-                        // "AND byte with accumulator, then transfer accumulator to X register."
                         let value = self.get_operand(mode);
                         self.register_a &= value;
                         self.register_x = self.register_a;
@@ -827,7 +783,7 @@ impl CPU {
                     "*AXA" => {
                         let addr = self.get_operand_address(mode);
                         let value = self.register_a & self.register_x & 7;
-                        self.mem_write(addr, value);
+                        self.bus.mem_write(addr, value);
                     }
 
                     "*AXS" => {
@@ -841,18 +797,18 @@ impl CPU {
 
                     "*DCP" => {
                         let addr = self.get_operand_address(mode);
-                        let mut value = self.mem_read(addr);
+                        let mut value = self.bus.mem_read(addr);
                         value = value.wrapping_sub(1);
-                        self.mem_write(addr, value);
+                        self.bus.mem_write(addr, value);
                         self.compare(mode, self.register_a);
                     }
 
-                    "*ISC" => {
+                    "*ISB" => {
                         let addr = self.get_operand_address(mode);
-                        let mut value = self.mem_read(addr);
+                        let mut value = self.bus.mem_read(addr);
                         value = value.wrapping_add(1);
-                        self.mem_write(addr, value);
-                        self.sbc(&opcode_ref.mode); // Re-use SBC logic
+                        self.bus.mem_write(addr, value);
+                        self.sbc(&opcode_ref.mode); 
                     }
                     
                     "*LAR" => {
@@ -865,7 +821,6 @@ impl CPU {
                     }
 
                     "*LAX" => {
-                        // "Load accumulator and X register with memory."
                         let value = self.get_operand(mode);
                         self.register_a = value;
                         self.register_x = value;
@@ -873,87 +828,78 @@ impl CPU {
                     }
 
                     "*RLA" => {
-                        // "Rotate one bit left in memory, then AND accumulator with memory."
                         let addr = self.get_operand_address(mode);
-                        let mut data = self.mem_read(addr);
+                        let mut data = self.bus.mem_read(addr);
                         let carry = self.get_flag(CARRY_FLAG);
                         self.set_flag(CARRY_FLAG, (data & 0x80) != 0);
                         data <<= 1;
                         if carry {
                             data |= 1;
                         }
-                        self.mem_write(addr, data);
+                        self.bus.mem_write(addr, data);
                         self.register_a &= data;
                         self.update_zero_and_negative_flags(self.register_a);
                     }
 
                     "*RRA" => {
-                        // "Rotate one bit right in memory, then add memory to accumulator (with carry)."
                         let addr = self.get_operand_address(mode);
-                        let mut data = self.mem_read(addr);
+                        let mut data = self.bus.mem_read(addr);
                         let carry = self.get_flag(CARRY_FLAG);
                         self.set_flag(CARRY_FLAG, (data & 0x01) != 0);
                         data >>= 1;
                         if carry {
                             data |= 0x80;
                         }
-                        self.mem_write(addr, data);
-                        self.adc(&opcode_ref.mode); // Re-use ADC logic
+                        self.bus.mem_write(addr, data);
+                        self.adc(&opcode_ref.mode); 
                     }
                     
                     "*SLO" => {
-                        // "Shift left one bit in memory, then OR accumulator with memory."
                         let addr = self.get_operand_address(mode);
-                        let mut data = self.mem_read(addr);
+                        let mut data = self.bus.mem_read(addr);
                         self.set_flag(CARRY_FLAG, (data & 0x80) != 0);
                         data <<= 1;
-                        self.mem_write(addr, data);
+                        self.bus.mem_write(addr, data);
                         self.register_a |= data;
                         self.update_zero_and_negative_flags(self.register_a);
                     }
 
                     "*SRE" => {
-                        // "Shift right one bit in memory, then EOR accumulator with memory."
                         let addr = self.get_operand_address(mode);
-                        let mut data = self.mem_read(addr);
+                        let mut data = self.bus.mem_read(addr);
                         self.set_flag(CARRY_FLAG, (data & 0x01) != 0);
                         data >>= 1;
-                        self.mem_write(addr, data);
+                        self.bus.mem_write(addr, data);
                         self.register_a ^= data;
                         self.update_zero_and_negative_flags(self.register_a);
                     }
 
                     "*SXA" => {
-                        // "M = X AND HIGH(arg) + 1"
                         let addr = self.get_operand_address(mode);
                         let high = (addr >> 8) as u8;
                         let value = self.register_x & high.wrapping_add(1);
-                        self.mem_write(addr, value);
+                        self.bus.mem_write(addr, value);
                     }
 
                     "*SYA" => {
-                        // "M = Y AND HIGH(arg) + 1"
                         let addr = self.get_operand_address(mode);
                         let high = (addr >> 8) as u8;
                         let value = self.register_y & high.wrapping_add(1);
-                        self.mem_write(addr, value);
+                        self.bus.mem_write(addr, value);
                     }
 
                     "*XAA" => {
-                        // "Exact operation unknown."
-                        // This implementation uses a common behavior for NES emulation (A = A & X & M).
                         let value = self.get_operand(mode);
                         self.register_a &= self.register_x & value;
                         self.update_zero_and_negative_flags(self.register_a);
                     }
 
                     "*XAS" => {
-                        // "S = X AND A, M = S AND HIGH(arg) + 1"
                         self.stack_pointer = self.register_a & self.register_x;
                         let addr = self.get_operand_address(mode);
                         let high = (addr >> 8) as u8;
                         let value = self.stack_pointer & high.wrapping_add(1);
-                        self.mem_write(addr, value);
+                        self.bus.mem_write(addr, value);
                     }
 
                     _ => todo!(),
@@ -965,105 +911,115 @@ impl CPU {
         }
     }
 
+    // in cpu.rs
+
     pub fn trace(&self) -> String {
         let opcodes: HashMap<u8, &'static OpCode> =
             CPU_OPCODES.iter().map(|op| (op.code, op)).collect();
 
-        let code = self.mem_read(self.program_counter);
+        let code = self.bus.mem_read(self.program_counter);
         let opcode = opcodes.get(&code).unwrap();
-
-        let mut hex_dump = vec![code];
         let pc = self.program_counter;
+
+        // 1. Format the instruction bytes (hex dump)
+        let mut hex_dump = vec![code];
         if opcode.bytes > 1 {
-            hex_dump.push(self.mem_read(pc + 1));
+            hex_dump.push(self.bus.mem_read(pc + 1));
         }
         if opcode.bytes > 2 {
-            hex_dump.push(self.mem_read(pc + 2));
+            hex_dump.push(self.bus.mem_read(pc + 2));
         }
-
         let hex_str = hex_dump
             .iter()
             .map(|z| format!("{:02X}", z))
             .collect::<Vec<String>>()
             .join(" ");
 
-        let asm_str: String = match opcode.mode {
-            AddressingMode::Immediate => {
-                let value = self.mem_read(pc + 1);
-                format!("{} #${:02X}", opcode.name, value)
-            }
+        // 2. Format the assembly instruction string based on addressing mode
+        let asm_str = match opcode.mode {
+            AddressingMode::Immediate => format!("{} #${:02X}", opcode.name, hex_dump[1]),
             AddressingMode::ZeroPage => {
-                let addr = self.mem_read(pc + 1);
-                let value = self.mem_read(addr as u16);
+                let addr = self.bus.mem_read(pc + 1);
+                let value = self.bus.mem_read(addr as u16);
                 format!("{} ${:02X} = {:02X}", opcode.name, addr, value)
             }
             AddressingMode::ZeroPage_X => {
-                let base = self.mem_read(pc + 1);
+                let base = self.bus.mem_read(pc + 1);
                 let addr = base.wrapping_add(self.register_x);
-                let value = self.mem_read(addr as u16);
+                let value = self.bus.mem_read(addr as u16);
                 format!("{} ${:02X},X @ {:02X} = {:02X}", opcode.name, base, addr, value)
             }
             AddressingMode::ZeroPage_Y => {
-                let base = self.mem_read(pc + 1);
+                let base = self.bus.mem_read(pc + 1);
                 let addr = base.wrapping_add(self.register_y);
-                let value = self.mem_read(addr as u16);
+                let value = self.bus.mem_read(addr as u16);
                 format!("{} ${:02X},Y @ {:02X} = {:02X}", opcode.name, base, addr, value)
             }
             AddressingMode::Absolute => {
-                let addr = self.mem_read_u16(pc + 1);
+                let addr = self.bus.mem_read_u16(pc + 1);
                 if opcode.name == "JMP" || opcode.name == "JSR" {
                     format!("{} ${:04X}", opcode.name, addr)
                 } else {
-                    let value = self.mem_read(addr);
+                    let value = self.bus.mem_read(addr);
                     format!("{} ${:04X} = {:02X}", opcode.name, addr, value)
                 }
             }
             AddressingMode::Absolute_X => {
-                let base = self.mem_read_u16(pc + 1);
+                let base = self.bus.mem_read_u16(pc + 1);
                 let addr = base.wrapping_add(self.register_x as u16);
-                let value = self.mem_read(addr);
+                let value = self.bus.mem_read(addr);
                 format!("{} ${:04X},X @ {:04X} = {:02X}", opcode.name, base, addr, value)
             }
             AddressingMode::Absolute_Y => {
-                let base = self.mem_read_u16(pc + 1);
+                let base = self.bus.mem_read_u16(pc + 1);
                 let addr = base.wrapping_add(self.register_y as u16);
-                let value = self.mem_read(addr);
+                let value = self.bus.mem_read(addr);
                 format!("{} ${:04X},Y @ {:04X} = {:02X}", opcode.name, base, addr, value)
             }
             AddressingMode::Indirect => {
-                let ptr_addr = self.mem_read_u16(pc + 1);
-                // Emulate 6502 indirect JMP bug
+                let ptr_addr = self.bus.mem_read_u16(pc + 1);
+                // Replicate the 6502 bug for indirect JMP
                 let final_addr = if ptr_addr & 0x00FF == 0x00FF {
-                    let lo = self.mem_read(ptr_addr);
-                    let hi = self.mem_read(ptr_addr & 0xFF00);
+                    let lo = self.bus.mem_read(ptr_addr);
+                    let hi = self.bus.mem_read(ptr_addr & 0xFF00);
                     (hi as u16) << 8 | (lo as u16)
                 } else {
-                    self.mem_read_u16(ptr_addr)
+                    self.bus.mem_read_u16(ptr_addr)
                 };
                 format!("{} (${:04X}) = {:04X}", opcode.name, ptr_addr, final_addr)
             }
+            // THIS IS THE KEY FIX from our previous discussion
             AddressingMode::Indirect_X => {
-                let base = self.mem_read(pc + 1);
+                let base = self.bus.mem_read(pc + 1);
                 let ptr = base.wrapping_add(self.register_x);
-                let addr = self.mem_read_u16(ptr as u16);
-                let value = self.mem_read(addr);
+                // Correctly handle the zero-page wraparound for the address lookup
+                let lo = self.bus.mem_read(ptr as u16);
+                let hi = self.bus.mem_read(ptr.wrapping_add(1) as u16);
+                let addr = (hi as u16) << 8 | (lo as u16);
+                let value = self.bus.mem_read(addr);
                 format!("{} (${:02X},X) @ {:02X} = {:04X} = {:02X}", opcode.name, base, ptr, addr, value)
             }
             AddressingMode::Indirect_Y => {
-                let base = self.mem_read(pc + 1);
-                let deref_base = self.mem_read_u16(base as u16);
+                let base = self.bus.mem_read(pc + 1);
+                // Correctly handle the zero-page wraparound for the address lookup
+                let lo = self.bus.mem_read(base as u16);
+                let hi = self.bus.mem_read(base.wrapping_add(1) as u16);
+                let deref_base = (hi as u16) << 8 | (lo as u16);
                 let addr = deref_base.wrapping_add(self.register_y as u16);
-                let value = self.mem_read(addr);
+                let value = self.bus.mem_read(addr);
                 format!("{} (${:02X}),Y = {:04X} @ {:04X} = {:02X}", opcode.name, base, deref_base, addr, value)
             }
             AddressingMode::Relative => {
-                let offset = self.mem_read(pc + 1) as i8;
+                let offset = self.bus.mem_read(pc + 1) as i8;
                 let addr = pc.wrapping_add(2).wrapping_add(offset as u16);
                 format!("{} ${:04X}", opcode.name, addr)
             }
-            AddressingMode::Implied | AddressingMode::Accumulator => format!("{}", opcode.name),
+            // Use opcode.name directly, but handle "ASL A" case for nestest.log
+            AddressingMode::Accumulator => format!("{} A", opcode.name),
+            AddressingMode::Implied => format!("{}", opcode.name),
         };
 
+        // 3. Combine everything into the final, correctly formatted log line
         format!(
             "{:04X}  {:8} {:<32} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}",
             self.program_counter,
@@ -1075,6 +1031,8 @@ impl CPU {
             self.status,
             self.stack_pointer
         )
+        .trim_end()
+        .to_string()
     }
-
 }
+
