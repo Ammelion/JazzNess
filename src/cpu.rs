@@ -917,7 +917,7 @@ impl<'call> CPU<'call> {
                 }
                 _ => todo!(),
             }
-            self.bus.tick(opcode_ref.cycles);
+            self.bus.tick(opcode_ref.cycles as usize);
 
             if pc_state == self.program_counter {
                 self.program_counter += opcode_ref.bytes as u16;

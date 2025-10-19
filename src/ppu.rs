@@ -28,6 +28,18 @@ bitflags! {
         const MASTER_SLAVE_SELECT     = 0b0100_0000;
         const GENERATE_NMI            = 0b1000_0000;
     }
+
+    pub struct MaskRegister: u8 {
+        const GREYSCALE               = 0b0000_0001;
+        const LEFTMOST_BG             = 0b0000_0010;
+        const LEFTMOST_SPRITES        = 0b0000_0100;
+        const SHOW_BACKGROUND         = 0b0000_1000;
+        const SHOW_SPRITES            = 0b0001_0000;
+        const EMPHASIZE_RED           = 0b0010_0000;
+        const EMPHASIZE_GREEN         = 0b0100_0000;
+        const EMPHASIZE_BLUE          = 0b1000_0000;
+    }
+
     pub struct StatusRegister: u8 {
         const VBLANK_STARTED    = 0b1000_0000;
         const SPRITE_0_HIT      = 0b0100_0000;
@@ -122,9 +134,11 @@ pub struct NesPPU {
     pub chr_rom: Vec<u8>,
     pub mirroring: Mirroring,
     pub ctrl: ControlRegister,
+    pub mask: MaskRegister,
     pub status: StatusRegister,
     
     pub vram: [u8; 2048],
+    pub oam_addr: u8,
     pub oam_data: [u8; 256],
     pub palette_table: [u8; 32],
     
@@ -137,7 +151,7 @@ pub struct NesPPU {
 }
 
 impl NesPPU {
-    pub fn tick(&mut self, cycles: u8) -> bool {
+    pub fn tick(&mut self, cycles: usize) -> bool {
         self.cycles += cycles as usize;
         if self.cycles >= 341 {
             self.cycles -= 341;
@@ -171,8 +185,10 @@ impl NesPPU {
             chr_rom,
             mirroring,
             ctrl: ControlRegister::new(),
+            mask: MaskRegister::from_bits_truncate(0),
             status: StatusRegister::from_bits_truncate(0),
             vram: [0; 2048],
+            oam_addr: 0,
             oam_data: [0; 256],
             palette_table: [0; 32],
             addr: AddrRegister::new(),
@@ -190,6 +206,27 @@ impl NesPPU {
         
         if !before_nmi && after_nmi && self.status.contains(StatusRegister::VBLANK_STARTED) {
             self.nmi_interrupt = Some(1);
+        }
+    }
+
+    pub fn write_to_mask(&mut self, value: u8) {
+        self.mask = MaskRegister::from_bits_truncate(value);
+    }
+    
+    // ADD THESE FUNCTIONS FOR OAM
+    pub fn write_to_oam_addr(&mut self, value: u8) {
+        self.oam_addr = value;
+    }
+
+    pub fn write_to_oam_data(&mut self, value: u8) {
+        self.oam_data[self.oam_addr as usize] = value;
+        self.oam_addr = self.oam_addr.wrapping_add(1);
+    }
+    
+    pub fn write_oam_dma(&mut self, data: &[u8; 256]) {
+        for x in data.iter() {
+            self.oam_data[self.oam_addr as usize] = *x;
+            self.oam_addr = self.oam_addr.wrapping_add(1);
         }
     }
 

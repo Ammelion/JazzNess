@@ -67,51 +67,52 @@ pub fn render(ppu: &NesPPU, frame: &mut Frame) {
             }
         }
     }
+    if ppu.mask.contains(crate::ppu::MaskRegister::SHOW_SPRITES) {
+        for i in (0..ppu.oam_data.len()).step_by(4).rev() {
+            let tile_y = ppu.oam_data[i] as usize;
+            let tile_idx = ppu.oam_data[i + 1] as u16;
+            let attributes = ppu.oam_data[i + 2];
+            let tile_x = ppu.oam_data[i + 3] as usize;
 
-    for i in (0..ppu.oam_data.len()).step_by(4).rev() {
-        let tile_y = ppu.oam_data[i] as usize;
-        let tile_idx = ppu.oam_data[i + 1] as u16;
-        let attributes = ppu.oam_data[i + 2];
-        let tile_x = ppu.oam_data[i + 3] as usize;
+            let flip_vertical = (attributes >> 7) & 1 == 1;
+            let flip_horizontal = (attributes >> 6) & 1 == 1;
+            let palette_idx = attributes & 0b11;
+            let sprite_palette = sprite_palette(ppu, palette_idx);
 
-        let flip_vertical = (attributes >> 7) & 1 == 1;
-        let flip_horizontal = (attributes >> 6) & 1 == 1;
-        let palette_idx = attributes & 0b11;
-        let sprite_palette = sprite_palette(ppu, palette_idx);
+            let bank = ppu.ctrl.sprite_pattern_addr();
+            let tile = &ppu.chr_rom[(bank + tile_idx * 16) as usize..=(bank + tile_idx * 16 + 15) as usize];
 
-        let bank = ppu.ctrl.sprite_pattern_addr();
-        let tile = &ppu.chr_rom[(bank + tile_idx * 16) as usize..=(bank + tile_idx * 16 + 15) as usize];
+            for y in 0..=7 {
+                let mut upper = tile[y];
+                let mut lower = tile[y + 8];
 
-        for y in 0..=7 {
-            let mut upper = tile[y];
-            let mut lower = tile[y + 8];
+                'pixel_loop: for x in (0..=7).rev() {
+                    let value = (1 & lower) << 1 | (1 & upper);
+                    upper >>= 1;
+                    lower >>= 1;
 
-            'pixel_loop: for x in (0..=7).rev() {
-                let value = (1 & lower) << 1 | (1 & upper);
-                upper >>= 1;
-                lower >>= 1;
-
-                if value == 0 {
-                    continue 'pixel_loop;
+                    if value == 0 {
+                        continue 'pixel_loop;
+                    }
+                    
+                    let rgb = match value {
+                        1 => palette::SYSTEM_PALLETE[sprite_palette[1] as usize],
+                        2 => palette::SYSTEM_PALLETE[sprite_palette[2] as usize],
+                        3 => palette::SYSTEM_PALLETE[sprite_palette[3] as usize],
+                        _ => unreachable!(),
+                    };
+                    
+                    let pixel_x = match flip_horizontal {
+                        true => tile_x + 7 - x,
+                        false => tile_x + x,
+                    };
+                    let pixel_y = match flip_vertical {
+                        true => tile_y + 7 - y,
+                        false => tile_y + y,
+                    };
+                    
+                    frame.set_pixel(pixel_x, pixel_y, rgb);
                 }
-                
-                let rgb = match value {
-                    1 => palette::SYSTEM_PALLETE[sprite_palette[1] as usize],
-                    2 => palette::SYSTEM_PALLETE[sprite_palette[2] as usize],
-                    3 => palette::SYSTEM_PALLETE[sprite_palette[3] as usize],
-                    _ => unreachable!(),
-                };
-                
-                let pixel_x = match flip_horizontal {
-                    true => tile_x + 7 - x,
-                    false => tile_x + x,
-                };
-                let pixel_y = match flip_vertical {
-                    true => tile_y + 7 - y,
-                    false => tile_y + y,
-                };
-                
-                frame.set_pixel(pixel_x, pixel_y, rgb);
             }
         }
     }
