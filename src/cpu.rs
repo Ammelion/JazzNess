@@ -671,8 +671,6 @@ impl<'call> CPU<'call> {
                 "RTS" => self.program_counter = self.stack_pull_u16().wrapping_add(1),
                 "RTI" => {
                     self.status = self.stack_pull();
-                    self.set_flag(BREAK_COMMAND, false);
-                    self.set_flag(BREAK_COMMAND_2, true);
                     self.program_counter = self.stack_pull_u16();
                 }
 
@@ -706,8 +704,6 @@ impl<'call> CPU<'call> {
                 }
                 "PLP" => {
                     self.status = self.stack_pull();
-                    self.set_flag(BREAK_COMMAND, false);
-                    self.set_flag(BREAK_COMMAND_2, true);
                 }
 
                 /* Transfers */
@@ -1043,7 +1039,6 @@ impl<'call> CPU<'call> {
             AddressingMode::Implied => format!("{}", opcode.name),
         };
 
-        // 3. Combine everything into the final, correctly formatted log line
         format!(
             "{:04X}  {:8} {:<32} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}",
             self.program_counter,

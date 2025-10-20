@@ -82,7 +82,6 @@ impl<'call> Bus<'call> {
 
         if !nmi_before && nmi_after {
             self.nmi_interrupt = Some(1);
-            // CHANGED: Pass the joypad to the callback
             (self.gameloop_callback)(&self.ppu, &mut self.joypad1);
         }
     }
@@ -91,7 +90,6 @@ impl<'call> Bus<'call> {
         self.nmi_interrupt.take()
     }
     
-    // Helper functions for the debugger/tracer to read memory without side effects
     pub fn mem_read_u16_readonly(&self, pos: u16) -> u16 {
         let lo = self.mem_read_readonly(pos) as u16;
         let hi = self.mem_read_readonly(pos + 1) as u16;
@@ -106,7 +104,6 @@ impl<'call> Bus<'call> {
             }
             0x2002 => self.ppu.status.bits(),
 
-            // CHANGED: Use the new peek() method for read-only access
             0x4016 => self.joypad1.peek(), 
             
             0x8000..=0xFFFF => self.read_prg_rom(addr),
@@ -130,9 +127,9 @@ impl<'a> Mem for Bus<'a> {
                     _ => 0,
                 }
             }
-            // NEW: Handle reads from the joypad registers
+
             0x4016 => self.joypad1.read(),
-            0x4017 => 0, // No second controller implemented
+            0x4017 => 0, 
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0,
         }
@@ -148,10 +145,10 @@ fn mem_write(&mut self, addr: u16, data: u8) {
                 let mirror_down_addr = addr & 0x2007;
                 match mirror_down_addr {
                     0x2000 => self.ppu.write_to_ctrl(data),
-                    0x2001 => self.ppu.write_to_mask(data), // UPDATE THIS LINE
-                    0x2003 => self.ppu.write_to_oam_addr(data), // ADD THIS LINE
-                    0x2004 => self.ppu.write_to_oam_data(data), // ADD THIS LINE
-                    0x2005 => { /* todo!("PPU Scroll Register") */ }
+                    0x2001 => self.ppu.write_to_mask(data),
+                    0x2003 => self.ppu.write_to_oam_addr(data),
+                    0x2004 => self.ppu.write_to_oam_data(data),
+                    0x2005 => self.ppu.write_to_scroll(data),
                     0x2006 => self.ppu.write_to_ppu_addr(data),
                     0x2007 => self.ppu.write_to_data(data),
                     _ => { /* Unimplemented */ }

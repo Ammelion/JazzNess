@@ -49,7 +49,7 @@ fn main() {
     key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
 
     // --- Load the ROM ---
-    let mut file = File::open("pacman.nes").unwrap();
+    let mut file = File::open("donkeykong.nes").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
     let rom = Rom::new(&buffer).unwrap();

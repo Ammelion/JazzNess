@@ -47,6 +47,12 @@ bitflags! {
     }
 }
 
+pub struct ScrollRegister {
+    pub scroll_x: u8,
+    pub scroll_y: u8,
+    latch: bool,
+}
+
 impl ControlRegister {
     pub fn new() -> Self {
         ControlRegister::from_bits_truncate(0b0000_0000)
@@ -74,6 +80,16 @@ impl ControlRegister {
 
     pub fn background_pattern_addr(&self) -> u16 {
         if !self.contains(ControlRegister::BACKROUND_PATTERN_ADDR) { 0 } else { 0x1000 }
+    }
+
+    pub fn nametable_addr(&self) -> u16 {
+        match self.bits() & 0b11 {
+            0 => 0x2000,
+            1 => 0x2400,
+            2 => 0x2800,
+            3 => 0x2C00,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -130,12 +146,35 @@ impl AddrRegister {
     }
 }
 
+impl ScrollRegister {
+    pub fn new() -> Self {
+        ScrollRegister {
+            scroll_x: 0,
+            scroll_y: 0,
+            latch: false,
+        }
+    }
+
+    pub fn write(&mut self, data: u8) {
+        if !self.latch {
+            self.scroll_x = data;
+        } else {
+            self.scroll_y = data;
+        }
+        self.latch = !self.latch;
+    }
+
+    pub fn reset_latch(&mut self) {
+        self.latch = false;
+    }
+}
 pub struct NesPPU {
     pub chr_rom: Vec<u8>,
     pub mirroring: Mirroring,
     pub ctrl: ControlRegister,
     pub mask: MaskRegister,
     pub status: StatusRegister,
+    pub scroll: ScrollRegister,
     
     pub vram: [u8; 2048],
     pub oam_addr: u8,
@@ -152,15 +191,20 @@ pub struct NesPPU {
 
 impl NesPPU {
     pub fn tick(&mut self, cycles: usize) -> bool {
-        self.cycles += cycles as usize;
+        self.cycles += cycles;
+
         if self.cycles >= 341 {
             self.cycles -= 341;
             self.scanline += 1;
 
             if self.scanline == 241 {
-                self.status.insert(StatusRegister::VBLANK_STARTED);
-                if self.ctrl.contains(ControlRegister::GENERATE_NMI) {
-                    self.nmi_interrupt = Some(1);
+                // If V-Blank was not previously set, set it and trigger NMI.
+                // This prevents the NMI from re-triggering if the flag was cleared by a $2002 read.
+                if !self.status.contains(StatusRegister::VBLANK_STARTED) {
+                    self.status.insert(StatusRegister::VBLANK_STARTED);
+                    if self.ctrl.contains(ControlRegister::GENERATE_NMI) {
+                        self.nmi_interrupt = Some(1);
+                    }
                 }
             }
 
@@ -170,10 +214,22 @@ impl NesPPU {
                 self.status.remove(StatusRegister::VBLANK_STARTED);
                 self.status.remove(StatusRegister::SPRITE_0_HIT);
                 self.status.remove(StatusRegister::SPRITE_OVERFLOW);
-                return true;
+                return true; // Frame is complete
             }
         }
+
+        if self.scanline < 240 {
+            if self.is_sprite_0_hit(self.cycles) {
+                self.status.insert(StatusRegister::SPRITE_0_HIT);
+            }
+        }
+
         false
+    }
+    fn is_sprite_0_hit(&self, cycle: usize) -> bool {
+        let y = self.oam_data[0] as usize;
+        let x = self.oam_data[3] as usize;
+        (y == self.scanline as usize) && x <= cycle && self.mask.contains(MaskRegister::SHOW_SPRITES)
     }
 
     pub fn poll_nmi_interrupt(&mut self) -> Option<u8> {
@@ -187,6 +243,7 @@ impl NesPPU {
             ctrl: ControlRegister::new(),
             mask: MaskRegister::from_bits_truncate(0),
             status: StatusRegister::from_bits_truncate(0),
+            scroll: ScrollRegister::new(),
             vram: [0; 2048],
             oam_addr: 0,
             oam_data: [0; 256],
@@ -207,6 +264,10 @@ impl NesPPU {
         if !before_nmi && after_nmi && self.status.contains(StatusRegister::VBLANK_STARTED) {
             self.nmi_interrupt = Some(1);
         }
+    }
+
+    pub fn write_to_scroll(&mut self, value: u8) {
+        self.scroll.write(value);
     }
 
     pub fn write_to_mask(&mut self, value: u8) {
@@ -234,6 +295,7 @@ impl NesPPU {
         let data = self.status.bits();
         self.status.remove(StatusRegister::VBLANK_STARTED);
         self.addr.reset_latch();
+        self.scroll.reset_latch(); 
         data
     }
 
