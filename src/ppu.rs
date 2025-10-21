@@ -191,32 +191,71 @@ pub struct NesPPU {
 
 impl NesPPU {
 
+    // In ammelion/jazzness/.../src/ppu.rs
+    // Replace your entire existing tick() function with this one.
     pub fn tick(&mut self, cycles: usize) -> bool {
-            self.cycles += cycles;
+        self.cycles += cycles;
 
-            if self.cycles >= 341 {
-                self.cycles = self.cycles % 341;
-                self.scanline += 1;
-
-                if self.scanline == 241 {
-                    self.status.insert(StatusRegister::VBLANK_STARTED);
-                    self.status.remove(StatusRegister::SPRITE_0_HIT); // Clear sprite 0 hit
-                    if self.ctrl.contains(ControlRegister::GENERATE_NMI) {
-                        self.nmi_interrupt = Some(1);
+        // --- START NEW LOGIC ---
+        // Perform Sprite 0 Hit detection
+        // This must happen on visible scanlines (0-239) and visible cycles (1-256)
+        if self.scanline < 240 && self.cycles >= 1 && self.cycles <= 256 {
+            // Check if rendering is enabled
+            if self.mask.contains(MaskRegister::SHOW_BACKGROUND) && 
+            self.mask.contains(MaskRegister::SHOW_SPRITES) 
+            {
+                // Only set the flag if it's not already set
+                if !self.status.contains(StatusRegister::SPRITE_0_HIT) {
+                    // Check for hit at the *current* cycle
+                    // Your is_sprite_0_hit function is:
+                    // (y == self.scanline) && (x <= cycle)
+                    // We will call it with the current cycle.
+                    // Note: A more accurate PPU would check x == cycle, but
+                    // your function's (x <= cycle) will work for now.
+                    
+                    let y = self.oam_data[0] as usize;
+                    let x = self.oam_data[3] as usize;
+                    
+                    // We check for hit on this specific cycle.
+                    // A hit occurs if:
+                    // 1. Sprite 0's Y is on the current scanline.
+                    // 2. Sprite 0's X is exactly at the current cycle.
+                    // 3. We are not in the first 8 pixels (games mask this).
+                    if y == self.scanline as usize && x as usize == self.cycles && self.cycles != 255 {
+                        self.status.insert(StatusRegister::SPRITE_0_HIT);
                     }
                 }
+            }
+        }
+        // --- END NEW LOGIC ---
 
-                if self.scanline >= 262 {
-                    self.scanline = 0;
-                    self.nmi_interrupt = None;
-                    self.status.remove(StatusRegister::VBLANK_STARTED);
-                    self.status.remove(StatusRegister::SPRITE_OVERFLOW);
-                    self.status.remove(StatusRegister::SPRITE_0_HIT);
-                    return true; // Frame is complete
+        if self.cycles >= 341 {
+            self.cycles = self.cycles % 341;
+            self.scanline += 1;
+
+            if self.scanline == 241 {
+                self.status.insert(StatusRegister::VBLANK_STARTED);
+                // We NO LONGER clear sprite 0 hit here.
+                // The CPU must be able to read it during VBlank.
+                // self.status.remove(StatusRegister::SPRITE_0_HIT); 
+                
+                if self.ctrl.contains(ControlRegister::GENERATE_NMI) {
+                    self.nmi_interrupt = Some(1);
                 }
             }
-            false
+
+            if self.scanline >= 262 {
+                self.scanline = 0;
+                self.nmi_interrupt = None;
+                self.status.remove(StatusRegister::VBLANK_STARTED);
+                self.status.remove(StatusRegister::SPRITE_OVERFLOW);
+                self.status.remove(StatusRegister::SPRITE_0_HIT); // Clear flag at the *end* of VBlank
+                return true; // Frame is complete
+            }
+        }
+        false
     }
+
     fn is_sprite_0_hit(&self, cycle: usize) -> bool {
         let y = self.oam_data[0] as usize;
         let x = self.oam_data[3] as usize;

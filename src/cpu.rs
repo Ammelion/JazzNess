@@ -539,6 +539,8 @@ if condition {
         loop {
             if self.bus.poll_nmi_status().is_some() {
                 self.interrupt_nmi();
+                self.bus.tick(7);
+                continue;
             }
             //println!("{}", self.trace());
             callback(self);
@@ -945,7 +947,7 @@ if condition {
         
         self.set_flag(INTERRUPT_DISABLE, true);
 
-        self.bus.tick(2); // NMI takes extra cycles
+        // self.bus.tick(2); // NMI takes extra cycles
         self.program_counter = self.bus.mem_read_u16(0xFFFA);
     }
     // In src/cpu.rs

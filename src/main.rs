@@ -61,7 +61,7 @@ fn main() {
 
     // --- Load the ROM ---
     // Make sure to change this to the ROM you want to run!
-    let mut file = File::open("pacman.nes").unwrap();
+    let mut file = File::open("Mario.nes").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
     let rom = Rom::new(&buffer).unwrap();
