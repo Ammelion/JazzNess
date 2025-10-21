@@ -42,16 +42,23 @@ impl Joypad {
 
     pub fn read(&mut self) -> u8 {
         if self.button_index > 7 {
-            return 1;
+            // After 8 bits, return 0x41 to identify as a standard controller
+            // This is crucial for passing the hardware check in many games.
+            return 0x41; // <<< FIX #1
         }
         
+        // Read the current button's state based on the index
         let response = (self.button_status.bits() >> self.button_index) & 1;
 
+        // Increment the index ONLY if strobe mode is off
         if !self.strobe {
             self.button_index += 1;
         }
         
-        response
+        // Return 0x40 plus the button bit. This mimics open bus behavior
+        // combined with the controller's data line. While games often
+        // ignore the upper bits, returning 0x40 | response is most accurate.
+        0x40 | response // <<< FIX #2
     }
 
     pub fn peek(&self) -> u8 {

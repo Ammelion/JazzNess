@@ -190,41 +190,32 @@ pub struct NesPPU {
 }
 
 impl NesPPU {
+
     pub fn tick(&mut self, cycles: usize) -> bool {
-        self.cycles += cycles;
+            self.cycles += cycles;
 
-        if self.cycles >= 341 {
-            self.cycles -= 341;
-            self.scanline += 1;
+            if self.cycles >= 341 {
+                self.cycles = self.cycles % 341;
+                self.scanline += 1;
 
-            if self.scanline == 241 {
-                // If V-Blank was not previously set, set it and trigger NMI.
-                // This prevents the NMI from re-triggering if the flag was cleared by a $2002 read.
-                if !self.status.contains(StatusRegister::VBLANK_STARTED) {
+                if self.scanline == 241 {
                     self.status.insert(StatusRegister::VBLANK_STARTED);
+                    self.status.remove(StatusRegister::SPRITE_0_HIT); // Clear sprite 0 hit
                     if self.ctrl.contains(ControlRegister::GENERATE_NMI) {
                         self.nmi_interrupt = Some(1);
                     }
                 }
-            }
 
-            if self.scanline >= 262 {
-                self.scanline = 0;
-                self.nmi_interrupt = None;
-                self.status.remove(StatusRegister::VBLANK_STARTED);
-                self.status.remove(StatusRegister::SPRITE_0_HIT);
-                self.status.remove(StatusRegister::SPRITE_OVERFLOW);
-                return true; // Frame is complete
+                if self.scanline >= 262 {
+                    self.scanline = 0;
+                    self.nmi_interrupt = None;
+                    self.status.remove(StatusRegister::VBLANK_STARTED);
+                    self.status.remove(StatusRegister::SPRITE_OVERFLOW);
+                    self.status.remove(StatusRegister::SPRITE_0_HIT);
+                    return true; // Frame is complete
+                }
             }
-        }
-
-        if self.scanline < 240 {
-            if self.is_sprite_0_hit(self.cycles) {
-                self.status.insert(StatusRegister::SPRITE_0_HIT);
-            }
-        }
-
-        false
+            false
     }
     fn is_sprite_0_hit(&self, cycle: usize) -> bool {
         let y = self.oam_data[0] as usize;
@@ -378,5 +369,17 @@ impl NesPPU {
             }
         _ => panic!("unexpected access to mirrored space {}", addr),
         }
+    }
+    pub fn peek_status(&self) -> u8 {
+        let mut status = 0;
+        // CORRECT WAY to check a bitflag
+        if self.status.contains(StatusRegister::VBLANK_STARTED) {
+            status |= 0b1000_0000;
+        }
+        // You could also add other flags here if needed for peeking, for example:
+        // if self.status.contains(StatusRegister::SPRITE_0_HIT) {
+        //     status |= 0b0100_0000;
+        // }
+        status
     }
 }

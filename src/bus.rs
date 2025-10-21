@@ -1,6 +1,6 @@
 use crate::cartridge::Rom;
 use crate::ppu::NesPPU;
-use crate::joypad::Joypad; // NEW: Import the Joypad
+use crate::joypad::Joypad; 
 
 pub trait Mem {
     fn mem_read(&mut self, addr: u16) -> u8;
@@ -30,7 +30,8 @@ pub struct Bus<'call> {
     ppu: NesPPU,
     cycles: usize,
     nmi_interrupt: Option<u8>,
-    joypad1: Joypad,
+    pub joypad1: Joypad,
+    pub joypad2: Joypad,
     gameloop_callback: Box<dyn FnMut(&NesPPU, &mut Joypad) + 'call>,
 }
 
@@ -47,7 +48,8 @@ impl<'call> Bus<'call> {
             ppu,
             cycles: 0,
             nmi_interrupt: None,
-            joypad1: Joypad::new(), // NEW: Initialize the joypad
+            joypad1: Joypad::new(),
+            joypad2: Joypad::new(),
             gameloop_callback: Box::from(gameloop_callback),
         }
     }
@@ -74,26 +76,19 @@ impl<'call> Bus<'call> {
     }
 
     pub fn tick(&mut self, cycles: usize) {
-        self.cycles += cycles as usize;
+        self.cycles += cycles;
+        let frame_complete = self.ppu.tick(cycles * 3);
 
-        let nmi_before = self.ppu.nmi_interrupt.is_some();
-        self.ppu.tick(cycles * 3);
-        let nmi_after = self.ppu.nmi_interrupt.is_some();
-
-        if !nmi_before && nmi_after {
-            self.nmi_interrupt = Some(1);
+        if frame_complete {
             (self.gameloop_callback)(&self.ppu, &mut self.joypad1);
         }
+        
+        if self.ppu.poll_nmi_interrupt().is_some() {
+            self.nmi_interrupt = Some(1);
+        }
     }
-
     pub fn poll_nmi_status(&mut self) -> Option<u8> {
         self.nmi_interrupt.take()
-    }
-    
-    pub fn mem_read_u16_readonly(&self, pos: u16) -> u16 {
-        let lo = self.mem_read_readonly(pos) as u16;
-        let hi = self.mem_read_readonly(pos + 1) as u16;
-        (hi << 8) | lo
     }
     
     pub fn mem_read_readonly(&self, addr: u16) -> u8 {
@@ -102,13 +97,15 @@ impl<'call> Bus<'call> {
                 let mirror_down_addr = addr & 0x07FF;
                 self.cpu_vram[mirror_down_addr as usize]
             }
-            0x2002 => self.ppu.status.bits(),
-
-            0x4016 => self.joypad1.peek(), 
-            
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0,
         }
+    }
+
+    pub fn mem_read_u16_readonly(&self, pos: u16) -> u16 {
+        let lo = self.mem_read_readonly(pos) as u16;
+        let hi = self.mem_read_readonly(pos + 1) as u16;
+        (hi << 8) | lo
     }
 }
 
@@ -129,13 +126,13 @@ impl<'a> Mem for Bus<'a> {
             }
 
             0x4016 => self.joypad1.read(),
-            0x4017 => 0, 
+            0x4017 => self.joypad2.read(),
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0,
         }
     }
 
-fn mem_write(&mut self, addr: u16, data: u8) {
+    fn mem_write(&mut self, addr: u16, data: u8) {
         match addr {
             RAM..=RAM_MIRRORS_END => {
                 let mirror_down_addr = addr & 0x07FF;
@@ -155,7 +152,10 @@ fn mem_write(&mut self, addr: u16, data: u8) {
                 }
             }
             0x4014 => self.dma_transfer(data), // ADD THIS LINE
-            0x4016 => self.joypad1.write(data),
+            0x4016 => {
+                self.joypad1.write(data);
+                self.joypad2.write(data);
+            },
             0x8000..=0xFFFF => { /* Cannot write to ROM */ }
             _ => { /* Ignoring write */ }
         }

@@ -37,7 +37,7 @@ pub struct CPU<'call> {
     pub stack_pointer: u8,
     pub status: u8,
     pub program_counter: u16,
-    bus: Bus<'call>,
+    pub bus: Bus<'call>,
 }
 pub struct OpCode {
     pub code: u8,
@@ -475,8 +475,24 @@ impl<'call> CPU<'call> {
     }
 
     fn branch(&mut self, condition: bool) {
-        if condition {
-            self.program_counter = self.get_operand_address(&AddressingMode::Relative);
+if condition {
+            // Add 1 cycle for taking the branch
+            self.bus.tick(1); 
+            
+            let target_addr = self.get_operand_address(&AddressingMode::Relative);
+            
+            // Add 1 more cycle if the branch crosses a page boundary
+            // (Old PC & $FF00) != (New PC & $FF00)
+            // Need to check against PC + 2 because Relative mode operand address 
+            // calculation already includes the +2 for the instruction itself.
+            let current_page = (self.program_counter.wrapping_add(2)) & 0xFF00;
+            let target_page = target_addr & 0xFF00;
+
+            if current_page != target_page {
+                self.bus.tick(1);
+            }
+
+            self.program_counter = target_addr;
         }
     }
 
@@ -539,12 +555,11 @@ impl<'call> CPU<'call> {
             
             match name {
                 "BRK" => {
-                    self.stack_push_u16(self.program_counter + 1);
+                    self.program_counter += 2; 
+                    self.stack_push_u16(self.program_counter);
                     let mut status = self.status;
-                    status |= BREAK_COMMAND; // Set B flag to 1
-                    status |= BREAK_COMMAND_2;
+                    status |= BREAK_COMMAND | BREAK_COMMAND_2; 
                     self.stack_push(status);
-
                     self.set_flag(INTERRUPT_DISABLE, true);
                     self.program_counter = self.bus.mem_read_u16(0xFFFE);
                 }
@@ -703,8 +718,8 @@ impl<'call> CPU<'call> {
                     self.update_zero_and_negative_flags(self.register_a);
                 }
                 "PLP" => {
-                    self.status = self.stack_pull();
-                }
+                    let temp = self.stack_pull();
+                    self.status = (temp & 0b11001111) | (self.status & 0b00110000);                }
 
                 /* Transfers */
                 "TAX" => {
@@ -924,30 +939,31 @@ impl<'call> CPU<'call> {
     fn interrupt_nmi(&mut self){
         self.stack_push_u16(self.program_counter);
         let mut status = self.status;
-        status &= !BREAK_COMMAND;
-        status |= BREAK_COMMAND_2;
+        status &= !(BREAK_COMMAND); // Clear bit 4
+        status |= BREAK_COMMAND_2;  // Set bit 5
         self.stack_push(status);
         
         self.set_flag(INTERRUPT_DISABLE, true);
 
+        self.bus.tick(2); // NMI takes extra cycles
         self.program_counter = self.bus.mem_read_u16(0xFFFA);
     }
+    // In src/cpu.rs
 
-    pub fn trace(&mut self) -> String {
-        let opcodes: HashMap<u8, &'static OpCode> =
+    pub fn trace(&self) -> String {
+        let opcodes: std::collections::HashMap<u8, &'static OpCode> =
             CPU_OPCODES.iter().map(|op| (op.code, op)).collect();
 
-        let code = self.bus.mem_read(self.program_counter);
+        let code = self.bus.mem_read_readonly(self.program_counter);
         let opcode = opcodes.get(&code).unwrap();
         let pc = self.program_counter;
 
-        // 1. Format the instruction bytes (hex dump)
         let mut hex_dump = vec![code];
         if opcode.bytes > 1 {
-            hex_dump.push(self.bus.mem_read(pc + 1));
+            hex_dump.push(self.bus.mem_read_readonly(pc + 1));
         }
         if opcode.bytes > 2 {
-            hex_dump.push(self.bus.mem_read(pc + 2));
+            hex_dump.push(self.bus.mem_read_readonly(pc + 2));
         }
         let hex_str = hex_dump
             .iter()
@@ -955,95 +971,40 @@ impl<'call> CPU<'call> {
             .collect::<Vec<String>>()
             .join(" ");
 
-        // 2. Format the assembly instruction string based on addressing mode
         let asm_str = match opcode.mode {
-            AddressingMode::Immediate => format!("{} #${:02X}", opcode.name, hex_dump[1]),
-            AddressingMode::ZeroPage => {
-                let addr = self.bus.mem_read(pc + 1);
-                let value = self.bus.mem_read(addr as u16);
-                format!("{} ${:02X} = {:02X}", opcode.name, addr, value)
+            AddressingMode::Immediate | AddressingMode::Relative => {
+                format!("{} #${:02X}", opcode.name, hex_dump[1])
             }
-            AddressingMode::ZeroPage_X => {
-                let base = self.bus.mem_read(pc + 1);
-                let addr = base.wrapping_add(self.register_x);
-                let value = self.bus.mem_read(addr as u16);
-                format!("{} ${:02X},X @ {:02X} = {:02X}", opcode.name, base, addr, value)
-            }
-            AddressingMode::ZeroPage_Y => {
-                let base = self.bus.mem_read(pc + 1);
-                let addr = base.wrapping_add(self.register_y);
-                let value = self.bus.mem_read(addr as u16);
-                format!("{} ${:02X},Y @ {:02X} = {:02X}", opcode.name, base, addr, value)
-            }
+            AddressingMode::ZeroPage => format!("{} ${:02X}", opcode.name, hex_dump[1]),
+            AddressingMode::ZeroPage_X => format!("{} ${:02X},X", opcode.name, hex_dump[1]),
+            AddressingMode::ZeroPage_Y => format!("{} ${:02X},Y", opcode.name, hex_dump[1]),
             AddressingMode::Absolute => {
-                let addr = self.bus.mem_read_u16(pc + 1);
-                if opcode.name == "JMP" || opcode.name == "JSR" {
-                    format!("{} ${:04X}", opcode.name, addr)
-                } else {
-                    let value = self.bus.mem_read(addr);
-                    format!("{} ${:04X} = {:02X}", opcode.name, addr, value)
-                }
+                format!("{} ${:04X}", opcode.name, self.bus.mem_read_u16_readonly(pc + 1))
             }
             AddressingMode::Absolute_X => {
-                let base = self.bus.mem_read_u16(pc + 1);
-                let addr = base.wrapping_add(self.register_x as u16);
-                let value = self.bus.mem_read(addr);
-                format!("{} ${:04X},X @ {:04X} = {:02X}", opcode.name, base, addr, value)
+                format!("{} ${:04X},X", opcode.name, self.bus.mem_read_u16_readonly(pc + 1))
             }
             AddressingMode::Absolute_Y => {
-                let base = self.bus.mem_read_u16(pc + 1);
-                let addr = base.wrapping_add(self.register_y as u16);
-                let value = self.bus.mem_read(addr);
-                format!("{} ${:04X},Y @ {:04X} = {:02X}", opcode.name, base, addr, value)
+                format!("{} ${:04X},Y", opcode.name, self.bus.mem_read_u16_readonly(pc + 1))
             }
             AddressingMode::Indirect => {
-                let ptr_addr = self.bus.mem_read_u16(pc + 1);
-                // Replicate the 6502 bug for indirect JMP
-                let final_addr = if ptr_addr & 0x00FF == 0x00FF {
-                    let lo = self.bus.mem_read(ptr_addr);
-                    let hi = self.bus.mem_read(ptr_addr & 0xFF00);
-                    (hi as u16) << 8 | (lo as u16)
-                } else {
-                    self.bus.mem_read_u16(ptr_addr)
-                };
-                format!("{} (${:04X}) = {:04X}", opcode.name, ptr_addr, final_addr)
+                format!("{} (${:04X})", opcode.name, self.bus.mem_read_u16_readonly(pc + 1))
             }
-            // THIS IS THE KEY FIX from our previous discussion
             AddressingMode::Indirect_X => {
-                let base = self.bus.mem_read(pc + 1);
-                let ptr = base.wrapping_add(self.register_x);
-                // Correctly handle the zero-page wraparound for the address lookup
-                let lo = self.bus.mem_read(ptr as u16);
-                let hi = self.bus.mem_read(ptr.wrapping_add(1) as u16);
-                let addr = (hi as u16) << 8 | (lo as u16);
-                let value = self.bus.mem_read(addr);
-                format!("{} (${:02X},X) @ {:02X} = {:04X} = {:02X}", opcode.name, base, ptr, addr, value)
+                format!("{} (${:02X},X)", opcode.name, hex_dump[1])
             }
             AddressingMode::Indirect_Y => {
-                let base = self.bus.mem_read(pc + 1);
-                // Correctly handle the zero-page wraparound for the address lookup
-                let lo = self.bus.mem_read(base as u16);
-                let hi = self.bus.mem_read(base.wrapping_add(1) as u16);
-                let deref_base = (hi as u16) << 8 | (lo as u16);
-                let addr = deref_base.wrapping_add(self.register_y as u16);
-                let value = self.bus.mem_read(addr);
-                format!("{} (${:02X}),Y = {:04X} @ {:04X} = {:02X}", opcode.name, base, deref_base, addr, value)
+                format!("{} (${:02X}),Y", opcode.name, hex_dump[1])
             }
-            AddressingMode::Relative => {
-                let offset = self.bus.mem_read(pc + 1) as i8;
-                let addr = pc.wrapping_add(2).wrapping_add(offset as u16);
-                format!("{} ${:04X}", opcode.name, addr)
-            }
-            // Use opcode.name directly, but handle "ASL A" case for nestest.log
-            AddressingMode::Accumulator => format!("{} A", opcode.name),
-            AddressingMode::Implied => format!("{}", opcode.name),
+            AddressingMode::Accumulator => "A".to_string(),
+            AddressingMode::Implied => "".to_string(),
         };
 
         format!(
             "{:04X}  {:8} {:<32} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X}",
             self.program_counter,
             hex_str,
-            asm_str,
+            format!("{} {}", opcode.name, asm_str),
             self.register_a,
             self.register_x,
             self.register_y,
@@ -1053,5 +1014,6 @@ impl<'call> CPU<'call> {
         .trim_end()
         .to_string()
     }
+
 }
 
