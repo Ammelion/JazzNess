@@ -1,9 +1,8 @@
-// In src/main.rs
-
 extern crate sdl2;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+pub mod apu;
 pub mod bus;
 pub mod cartridge;
 pub mod cpu;
@@ -22,21 +21,27 @@ use sdl2::pixels::PixelFormatEnum;
 use std::fs::File;
 use std::io::Read;
 
-// --- Import Rc and RefCell ---
-use std::cell::{Cell, RefCell}; // Cell is still needed for the closure
+// --- Import audio and other necessary components ---
+use sdl2::audio::{AudioSpecDesired};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+
+// --- Audio Constants ---
+const AUDIO_SAMPLE_RATE: i32 = 44100;
+const AUDIO_BUFFER_SIZE: u16 = 1024;
 
 fn main() {
     // --- Init SDL2 ---
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
     let window = video_subsystem
         .window("JazzNess Emulator", 256 * 2, 240 * 2)
         .position_centered()
         .build()
         .unwrap();
 
-    // --- Wrap SDL components in Rc<RefCell<...>> ---
+    // --- Wrap SDL components for sharing ---
     let canvas = Rc::new(RefCell::new(
         window.into_canvas().present_vsync().build().unwrap(),
     ));
@@ -48,7 +53,19 @@ fn main() {
             .unwrap(),
     ));
 
-    // --- Create a key mapping ---
+    // --- Setup Audio Queue ---
+    let desired_spec = AudioSpecDesired {
+        freq: Some(AUDIO_SAMPLE_RATE),
+        channels: Some(1), // mono
+        samples: Some(AUDIO_BUFFER_SIZE),
+    };
+    
+    let audio_queue = Rc::new(RefCell::new(
+        audio_subsystem.open_queue::<f32, _>(None, &desired_spec).unwrap()
+    ));
+    audio_queue.borrow().resume(); // Start playing audio
+
+    // --- Key Mapping ---
     let mut key_map = HashMap::new();
     key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_A);
     key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_B);
@@ -59,25 +76,25 @@ fn main() {
     key_map.insert(Keycode::Left, joypad::JoypadButton::LEFT);
     key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
 
-    // --- Load the ROM ---
-    // Make sure to change this to the ROM you want to run!
+    // --- Load ROM ---
     let mut file = File::open("Mario.nes").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
     let rom = Rom::new(&buffer).unwrap();
 
-    // --- Set up the Game Loop Closure ---
+    // --- Game Loop Closure ---
     let frame = Rc::new(RefCell::new(Frame::new()));
     let target_frame_time = Duration::from_millis(1000 / 60);
 
     let canvas_clone = Rc::clone(&canvas);
     let texture_clone = Rc::clone(&texture);
     let frame_clone = Rc::clone(&frame);
+    let audio_queue_clone = Rc::clone(&audio_queue);
 
-    // --- Note: Fix unused variable warning by prefixing joypad with _ ---
-    let game_loop = move |ppu: &ppu::NesPPU, _joypad: &mut joypad::Joypad| {
+    let game_loop = move |ppu: &ppu::NesPPU, _joypad: &mut joypad::Joypad, apu: &mut apu::Apu| {
         let frame_start_time = Instant::now();
 
+        // Render video
         render::render(ppu, &mut frame_clone.borrow_mut());
         texture_clone
             .borrow_mut()
@@ -89,35 +106,39 @@ fn main() {
             .unwrap();
         canvas_clone.borrow_mut().present();
 
+        // Queue audio
+        let audio_samples = apu.take_samples();
+        if !audio_samples.is_empty() {
+             if audio_queue_clone.borrow().size() > (AUDIO_BUFFER_SIZE * 2) as u32 {
+                 audio_queue_clone.borrow().clear();
+             }
+             audio_queue_clone.borrow().queue(&audio_samples);
+        }
+
+        // Sleep to maintain frame rate
         let elapsed_time = frame_start_time.elapsed();
         if elapsed_time < target_frame_time {
             std::thread::sleep(target_frame_time - elapsed_time);
         }
     };
 
-    // --- Create the Bus and CPU ---
+    // --- Create Bus and CPU ---
     let bus = Bus::new(rom, game_loop);
     let mut cpu = CPU::new(bus);
     cpu.reset();
 
-    // --- Add a counter to throttle event polling ---
+    // --- Emulator Run Loop ---
     let instruction_counter = Cell::new(0u32);
-
-    // --- Run the emulator ---
-    // The callback now just handles input and throttling
     cpu.run_with_callback(move |cpu| {
-
-        // --- Throttling Logic ---
+        // Throttling logic for handling input events
         let count = instruction_counter.get();
         instruction_counter.set(count + 1);
         if count < 1000 {
-            // Only poll events every 1000 instructions
             return;
         }
-        instruction_counter.set(0); // Reset counter
-        // --- End of Throttling Logic ---
+        instruction_counter.set(0);
 
-        // This code block now only runs periodically
+        // Handle SDL events
         for event in event_pump.borrow_mut().poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -128,7 +149,6 @@ fn main() {
                 Event::KeyDown { keycode, .. } => {
                     if let Some(keycode) = keycode {
                         if let Some(button) = key_map.get(&keycode) {
-                            // Make sure joypad1 is public in bus.rs
                             cpu.bus.joypad1.set_button_pressed_status(*button, true);
                         }
                     }
@@ -137,7 +157,6 @@ fn main() {
                 Event::KeyUp { keycode, .. } => {
                     if let Some(keycode) = keycode {
                         if let Some(button) = key_map.get(&keycode) {
-                            // Make sure joypad1 is public in bus.rs
                             cpu.bus.joypad1.set_button_pressed_status(*button, false);
                         }
                     }
@@ -147,3 +166,4 @@ fn main() {
         }
     });
 }
+

@@ -475,16 +475,12 @@ impl<'call> CPU<'call> {
     }
 
     fn branch(&mut self, condition: bool) {
-if condition {
+        if condition {
             // Add 1 cycle for taking the branch
             self.bus.tick(1); 
             
             let target_addr = self.get_operand_address(&AddressingMode::Relative);
             
-            // Add 1 more cycle if the branch crosses a page boundary
-            // (Old PC & $FF00) != (New PC & $FF00)
-            // Need to check against PC + 2 because Relative mode operand address 
-            // calculation already includes the +2 for the instruction itself.
             let current_page = (self.program_counter.wrapping_add(2)) & 0xFF00;
             let target_page = target_addr & 0xFF00;
 
@@ -542,6 +538,16 @@ if condition {
                 self.bus.tick(7);
                 continue;
             }
+
+            if self.bus.poll_irq_status().is_some() {
+                // Only trigger IRQ if the interrupt disable flag is clear
+                if !self.get_flag(INTERRUPT_DISABLE) {
+                    self.interrupt_irq();
+                    self.bus.tick(7); // IRQs take 7 cycles
+                    continue;
+                }
+            }
+
             //println!("{}", self.trace());
             callback(self);
             
@@ -950,7 +956,20 @@ if condition {
         // self.bus.tick(2); // NMI takes extra cycles
         self.program_counter = self.bus.mem_read_u16(0xFFFA);
     }
-    // In src/cpu.rs
+    
+    fn interrupt_irq(&mut self){
+        self.stack_push_u16(self.program_counter);
+        let mut status = self.status;
+        status &= !(BREAK_COMMAND); // Clear bit 4
+        status |= BREAK_COMMAND_2;  // Set bit 5
+        self.stack_push(status);
+
+        self.set_flag(INTERRUPT_DISABLE, true);
+
+        // self.bus.tick(2); // IRQ takes extra cycles
+        self.program_counter = self.bus.mem_read_u16(0xFFFE);
+    }
+
 
     pub fn trace(&self) -> String {
         let opcodes: std::collections::HashMap<u8, &'static OpCode> =
