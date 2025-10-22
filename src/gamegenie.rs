@@ -53,13 +53,13 @@ pub fn parse_game_genie_code(code: &str) -> Result<GameGenieCode, String> {
     //
     // Data:
     //   (N1 & 7)       -> Data bits 0-2
-    // | (N1 & 8) >> 4  -> Data bit 3 (note: some docs say >> 4, some say << 0. This seems correct)
+    // | (N1 & 8)       -> Data bit 3
     // | (N4 & 7) << 4  -> Data bits 4-6
     // | (N4 & 8)       -> Data bit 7
     //
     // Compare (8-letter only):
     //   (N8 & 7)       -> Comp bits 0-2
-    // | (N8 & 8) >> 4  -> Comp bit 3
+    // | (N8 & 8)       -> Comp bit 3
     // | (N7 & 7) << 4  -> Comp bits 4-6
     // | (N7 & 8)       -> Comp bit 7
 
@@ -72,14 +72,14 @@ pub fn parse_game_genie_code(code: &str) -> Result<GameGenieCode, String> {
 
     let new_data =
           ((n[0] as u8 & 0x7))         // N1 bits 0-2 -> Data 0-2
-        | ((n[0] as u8 & 0x8) >> 4)  // N1 bit 3    -> Data 3
+        | (n[0] as u8 & 0x8)         // N1 bit 3    -> Data 3  <--- FIXED
         | ((n[3] as u8 & 0x7) << 4)  // N4 bits 0-2 -> Data 4-6
         | ((n[3] as u8 & 0x8));      // N4 bit 3    -> Data 7
 
     let compare_data = if len == 8 {
         Some(
               ((n[7] as u8 & 0x7))         // N8 bits 0-2 -> Comp 0-2
-            | ((n[7] as u8 & 0x8) >> 4)  // N8 bit 3    -> Comp 3
+            | (n[7] as u8 & 0x8)         // N8 bit 3    -> Comp 3  <--- FIXED
             | ((n[6] as u8 & 0x7) << 4)  // N7 bits 0-2 -> Comp 4-6
             | ((n[6] as u8 & 0x8))       // N7 bit 3    -> Comp 7
         )
