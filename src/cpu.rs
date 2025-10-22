@@ -527,7 +527,7 @@ impl<'call> CPU<'call> {
 
     pub fn run_with_callback<F>(&mut self, mut callback: F)
     where
-        F: FnMut(&mut CPU),
+        F: FnMut(&mut CPU) -> bool,
     {
         let ref opcodes: HashMap<u8, &'static OpCode> =
             CPU_OPCODES.iter().map(|op| (op.code, op)).collect();
@@ -549,7 +549,9 @@ impl<'call> CPU<'call> {
             }
 
             //println!("{}", self.trace());
-            callback(self);
+            if !callback(self) {
+                break; // If callback returns false, stop this CPU loop.
+            }
             
             let code = self.bus.mem_read(self.program_counter);
             let opcode_ref = opcodes
