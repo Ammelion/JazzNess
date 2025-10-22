@@ -1,3 +1,5 @@
+// In src/emulator.rs
+
 // --- Add new imports for Arc and Mutex ---
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -23,6 +25,9 @@ use crate::render;
 use crate::apu;
 use crate::ppu;
 use crate::joypad;
+// --- ADD THIS IMPORT ---
+use crate::gamegenie::GameGenieCode;
+
 
 // --- Audio Constants ---
 const AUDIO_SAMPLE_RATE: i32 = 44100;
@@ -31,6 +36,8 @@ const AUDIO_BUFFER_SIZE: u16 = 1024;
 // --- Emulator Command Enum ---
 pub enum EmulatorCommand {
     LoadRom(String),
+    // --- ADD THIS VARIANT ---
+    SetGameGenieCodes(Vec<GameGenieCode>),
 }
 
 pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
@@ -108,7 +115,11 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
         // This pattern binding handles the command and avoids unreachable code
         let rom_path = match command {
             EmulatorCommand::LoadRom(path) => path,
-            // Add other commands here if needed later
+            // Handle new command types gracefully if they are received *before* emulation starts
+            EmulatorCommand::SetGameGenieCodes(_) => {
+                println!("Emulator Thread: Ignoring cheat codes, no ROM loaded.");
+                continue; // Go back to waiting for a LoadRom command
+            }
         };
 
         println!("Emulator Thread: Loading ROM: {}", rom_path);
@@ -187,6 +198,16 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
                     window_canvas_clone_callback.borrow_mut().window_mut().hide();
                     return false; // Stop CPU loop
                 },
+                
+                // --- ADD THIS HANDLER ---
+                Ok(EmulatorCommand::SetGameGenieCodes(codes)) => {
+                    println!("Emulator Thread: Applying Game Genie codes.");
+                    // Pass the new codes to the bus
+                    cpu.bus.set_game_genie_codes(codes);
+                    // Don't return, just continue emulation
+                },
+                // --- END OF NEW HANDLER ---
+
                 Err(mpsc::TryRecvError::Disconnected) => {
                     println!("Emulator Thread: Menu closed, stopping program.");
                     // --- FIX: Use borrow_mut().window_mut().hide() ---

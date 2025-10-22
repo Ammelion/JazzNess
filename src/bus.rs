@@ -1,7 +1,9 @@
 // In src/bus.rs
 
-use crate::apu::Apu; // Added for APU integration
+use crate::apu::Apu;
 use crate::cartridge::Rom;
+// --- ADD THIS IMPORT ---
+use crate::gamegenie::GameGenieCode;
 use crate::joypad::Joypad;
 use crate::ppu::NesPPU;
 
@@ -39,6 +41,9 @@ pub struct Bus<'call> {
     pub joypad2: Joypad,
     // Gameloop callback signature updated to include Apu
     gameloop_callback: Box<dyn FnMut(&NesPPU, &mut Joypad, &mut Apu) + 'call>,
+    
+    // --- ADD THIS FIELD ---
+    game_genie_codes: Vec<GameGenieCode>,
 }
 
 impl<'call> Bus<'call> {
@@ -59,7 +64,16 @@ impl<'call> Bus<'call> {
             joypad1: Joypad::new(),
             joypad2: Joypad::new(),
             gameloop_callback: Box::from(gameloop_callback),
+            
+            // --- INITIALIZE THE NEW FIELD ---
+            game_genie_codes: Vec::new(),
         }
+    }
+    
+    // --- ADD THIS NEW PUBLIC METHOD ---
+    /// Sets the list of active Game Genie codes.
+    pub fn set_game_genie_codes(&mut self, codes: Vec<GameGenieCode>) {
+        self.game_genie_codes = codes;
     }
 
     pub fn dma_transfer(&mut self, page: u8) {
@@ -74,13 +88,42 @@ impl<'call> Bus<'call> {
         // We'll use 513 for simplicity.
         self.tick(513);
     }
-
-    fn read_prg_rom(&self, mut addr: u16) -> u8 {
+    
+    // --- THIS IS THE NEWLY RENAMED RAW READ FUNCTION ---
+    fn read_prg_rom_raw(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
         if self.rom.prg_rom.len() == 0x4000 && addr >= 0x4000 {
             addr %= 0x4000;
         }
         self.rom.prg_rom[addr as usize]
+    }
+
+    // --- THIS IS THE MODIFIED FUNCTION WITH GAME GENIE LOGIC ---
+    fn read_prg_rom(&self, addr: u16) -> u8 {
+        // Check for an active Game Genie code at this address
+        for code in &self.game_genie_codes {
+            if code.address == addr {
+                // Address matches. Check if it's a conditional code.
+                if let Some(compare_data) = code.compare_data {
+                    // It is. We must read the *actual* ROM data to compare.
+                    let actual_data = self.read_prg_rom_raw(addr);
+                    if actual_data == compare_data {
+                        // Condition matches, return the new data
+                        return code.new_data;
+                    } else {
+                        // Condition failed, break from the code loop
+                        // and fall through to return the raw ROM data.
+                        break;
+                    }
+                } else {
+                    // Not a conditional code. Just return the new data.
+                    return code.new_data;
+                }
+            }
+        }
+
+        // No matching/triggered codes. Read from ROM as normal.
+        self.read_prg_rom_raw(addr)
     }
 
     pub fn tick(&mut self, cycles: usize) {
@@ -120,6 +163,7 @@ impl<'call> Bus<'call> {
                 let mirror_down_addr = addr & 0x07FF;
                 self.cpu_vram[mirror_down_addr as usize]
             }
+            // --- MODIFIED TO USE THE PATCHING FUNCTION ---
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0,
         }
@@ -154,6 +198,7 @@ impl<'a> Mem for Bus<'a> {
             0x4017 => self.joypad2.read(),
             // End APU/Joypad range
 
+            // --- MODIFIED TO USE THE PATCHING FUNCTION ---
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0, // Other APU regs ($4000-$4013) are write-only
         }
