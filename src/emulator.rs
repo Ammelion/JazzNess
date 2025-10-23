@@ -1,13 +1,14 @@
 // In src/emulator.rs
 
-// --- Add new imports for Arc and Mutex ---
+use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
+use std::io::{self, Write};
+use crate::debugger::Breakpoint; 
 
-// --- Keep all existing imports ---
+// --- KEEP ALL IMPORTS ---
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::fs::File;
-// --- Add Read back ---
 use std::io::Read;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -15,7 +16,6 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::audio::AudioSpecDesired;
-// WindowCanvas import no longer needed
 
 use crate::bus::Bus;
 use crate::cartridge::Rom;
@@ -25,34 +25,32 @@ use crate::render;
 use crate::apu;
 use crate::ppu;
 use crate::joypad;
-// --- ADD THIS IMPORT ---
 use crate::gamegenie::GameGenieCode;
+use crate::bus::Mem; // <--- FIX 1: ADD THIS IMPORT
 
+// --- (Rest of file is unchanged until the loop) ---
 
-// --- Audio Constants ---
 const AUDIO_SAMPLE_RATE: i32 = 44100;
 const AUDIO_BUFFER_SIZE: u16 = 1024;
 
-// --- Emulator Command Enum ---
 pub enum EmulatorCommand {
     LoadRom(String),
-    // --- ADD THIS VARIANT ---
     SetGameGenieCodes(Vec<GameGenieCode>),
+    Pause, 
 }
 
 pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
 
-    // --- 1. One-time SDL setup ---
+    // --- 1. One-time SDL setup (Unchanged) ---
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
 
-    // Store WindowCanvas in Rc<RefCell<>>
     let window_canvas = Rc::new(RefCell::new(
         video_subsystem
             .window("JazzNess Emulator", 256 * 2, 240 * 2)
             .position_centered()
-            .hidden() // Start hidden
+            .hidden()
             .build()
             .unwrap()
             .into_canvas()
@@ -70,20 +68,17 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
 
     let event_pump = Rc::new(RefCell::new(sdl_context.event_pump().unwrap()));
 
-    // Correct AudioSpecDesired initialization
     let desired_spec = AudioSpecDesired {
         freq: Some(AUDIO_SAMPLE_RATE),
         channels: Some(1),
         samples: Some(AUDIO_BUFFER_SIZE),
     };
 
-    // Correct RefCell::new call for audio_queue
     let audio_queue = Rc::new(RefCell::new(
         audio_subsystem.open_queue::<f32, _>(None, &desired_spec).unwrap()
     ));
     audio_queue.borrow().resume();
 
-    // Key Map (wrapped in Arc)
     let mut key_map_init = HashMap::new();
     key_map_init.insert(Keycode::S, joypad::JoypadButton::BUTTON_A);
     key_map_init.insert(Keycode::A, joypad::JoypadButton::BUTTON_B);
@@ -95,50 +90,46 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
     key_map_init.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
     let key_map = Arc::new(key_map_init);
 
-    // rx (wrapped in Arc<Mutex<>>)
     let rx = Arc::new(Mutex::new(rx));
 
 
-    // --- 2. "Meta-Loop" ---
-    // Remove unused label 'meta_loop'
+    // --- 2. "Meta-Loop" (Unchanged) ---
     loop {
 
-        // --- 3. Wait for command ---
+        // --- 3. Wait for command (Unchanged) ---
         let command = match rx.lock().unwrap().recv() {
             Ok(cmd) => cmd,
             Err(_) => {
                 println!("Emulator Thread: Command channel closed, exiting thread.");
-                break; // Exit the loop cleanly
+                break;
             }
         };
 
-        // This pattern binding handles the command and avoids unreachable code
         let rom_path = match command {
             EmulatorCommand::LoadRom(path) => path,
-            // Handle new command types gracefully if they are received *before* emulation starts
             EmulatorCommand::SetGameGenieCodes(_) => {
                 println!("Emulator Thread: Ignoring cheat codes, no ROM loaded.");
-                continue; // Go back to waiting for a LoadRom command
+                continue;
+            }
+            EmulatorCommand::Pause => {
+                println!("Emulator Thread: Ignoring pause, no ROM loaded.");
+                continue;
             }
         };
 
         println!("Emulator Thread: Loading ROM: {}", rom_path);
-
-        // --- FIX: Use borrow_mut().window_mut().show() ---
         window_canvas.borrow_mut().window_mut().show();
 
-        // --- 4. Load ROM and set up Bus/CPU ---
-        // Add buffer creation and file reading
+        // --- 4. Load ROM and set up Bus/CPU (Unchanged) ---
         let mut file = File::open(&rom_path)
             .expect(&format!("Failed to open ROM file: {}", rom_path));
-        let mut buffer = Vec::new(); // <-- Was missing
-        file.read_to_end(&mut buffer).unwrap(); // <-- Was missing
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
 
         let rom = Rom::new(&buffer).unwrap();
         let frame = Rc::new(RefCell::new(Frame::new()));
         let target_frame_time = Duration::from_millis(1000 / 60);
 
-        // --- Create clones for the `game_loop` closure ---
         let window_canvas_clone_loop = Rc::clone(&window_canvas);
         let texture_clone = Rc::clone(&texture);
         let frame_clone = Rc::clone(&frame);
@@ -147,7 +138,6 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
         let game_loop = move |ppu: &ppu::NesPPU, _joypad: &mut joypad::Joypad, apu: &mut apu::Apu| {
             let frame_start_time = Instant::now();
 
-            // Render video
             render::render(ppu, &mut frame_clone.borrow_mut());
             texture_clone
                 .borrow_mut()
@@ -158,7 +148,6 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
             canvas_guard.copy(&texture_clone.borrow(), None, None).unwrap();
             canvas_guard.present();
 
-            // Queue audio
             let audio_samples = apu.take_samples();
             if !audio_samples.is_empty() {
                 if audio_queue_clone.borrow().size() > (AUDIO_BUFFER_SIZE * 2) as u32 {
@@ -167,7 +156,6 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
                 audio_queue_clone.borrow().queue(&audio_samples);
             }
 
-            // Sleep
             let elapsed_time = frame_start_time.elapsed();
             if elapsed_time < target_frame_time {
                 std::thread::sleep(target_frame_time - elapsed_time);
@@ -175,63 +163,70 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
         };
 
         let bus = Bus::new(rom, game_loop);
+        
+        let paused_flag = bus.debugger.paused.clone();
+
         let mut cpu = CPU::new(bus);
         cpu.reset();
 
         // --- 5. Run the inner emulator loop ---
         let instruction_counter = Cell::new(0u32);
 
-        // --- Create clones before the `run_with_callback` closure ---
         let rx_clone = Arc::clone(&rx);
         let event_pump_clone = Rc::clone(&event_pump);
-        let key_map_clone = Arc::clone(&key_map);
+        // --- FIX 2: Change `Arc::new` to `Arc::clone` ---
+        let key_map_clone = Arc::clone(&key_map); 
         let window_canvas_clone_callback = Rc::clone(&window_canvas);
-
 
         cpu.run_with_callback(move |cpu| {
 
-            // --- Check for new commands (non-blocking) ---
+            // --- (Rest of file is unchanged) ---
+
+            while paused_flag.load(Ordering::SeqCst) {
+                if !handle_debug_prompt(&mut cpu.bus) {
+                    println!("Emulator Thread: Quitting from debugger.");
+                    window_canvas_clone_callback.borrow_mut().window_mut().hide();
+                    std::process::exit(0); 
+                }
+            }
+
             match rx_clone.lock().unwrap().try_recv() {
                 Ok(EmulatorCommand::LoadRom(_new_path)) => {
                     println!("Emulator Thread: Received new ROM, stopping current emulation.");
-                    // --- FIX: Use borrow_mut().window_mut().hide() ---
                     window_canvas_clone_callback.borrow_mut().window_mut().hide();
-                    return false; // Stop CPU loop
+                    return false; 
                 },
                 
-                // --- ADD THIS HANDLER ---
                 Ok(EmulatorCommand::SetGameGenieCodes(codes)) => {
                     println!("Emulator Thread: Applying Game Genie codes.");
-                    // Pass the new codes to the bus
                     cpu.bus.set_game_genie_codes(codes);
-                    // Don't return, just continue emulation
                 },
-                // --- END OF NEW HANDLER ---
+
+                Ok(EmulatorCommand::Pause) => {
+                    println!("[DEBUG] Pausing emulator via command.");
+                    paused_flag.store(true, Ordering::SeqCst);
+                },
 
                 Err(mpsc::TryRecvError::Disconnected) => {
                     println!("Emulator Thread: Menu closed, stopping program.");
-                    // --- FIX: Use borrow_mut().window_mut().hide() ---
                     window_canvas_clone_callback.borrow_mut().window_mut().hide();
-                    std::process::exit(0); // Exit whole app if menu closes
+                    std::process::exit(0);
                 },
                 Err(mpsc::TryRecvError::Empty) => { /* No new command */ }
             }
 
-            // --- Throttling logic ---
             let count = instruction_counter.get();
             instruction_counter.set(count + 1);
             if count < 1000 { return true; }
             instruction_counter.set(0);
 
-            // --- Handle SDL events ---
             for event in event_pump_clone.borrow_mut().poll_iter() {
                 match event {
                     Event::Quit { .. }
                     | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         println!("Emulator Thread: Quit event, hiding window and stopping emulation.");
-                        // --- FIX: Use borrow_mut().window_mut().hide() ---
                         window_canvas_clone_callback.borrow_mut().window_mut().hide();
-                        return false; // Stop CPU loop
+                        return false; 
                     },
                     Event::KeyDown { keycode, .. } => {
                         if let Some(keycode) = keycode {
@@ -251,10 +246,105 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
                 }
             }
 
-            true // --- Continue running ---
+            true 
         });
 
-        // --- Loop Cleanup ---
         audio_queue.borrow().clear();
+    }
+}
+
+
+// --- DEBUGGER HELPER FUNCTIONS (Unchanged) ---
+
+/// A helper function to manage the interactive debug prompt.
+fn handle_debug_prompt(bus: &mut Bus) -> bool {
+    print!("[DEBUG] (c)ontinue, (q)uit, (bp add|rem|list <addr>), (r <addr>), (w <addr> <val>): ");
+    io::stdout().flush().unwrap(); 
+
+    let mut input = String::new();
+    if io::stdin().read_line(&mut input).is_err() {
+        println!("[DEBUG] Error reading input.");
+        return true; 
+    }
+
+    let parts: Vec<&str> = input.trim().split_whitespace().collect();
+
+    match parts.as_slice() {
+        ["c" | "continue"] => {
+            println!("[DEBUG] ...resuming");
+            bus.debugger.paused.store(false, Ordering::SeqCst);
+        }
+        ["q" | "quit"] => {
+            return false; 
+        }
+        
+        ["bp", "add", addr_str, "r"] => parse_and_add_bp(bus, addr_str, Breakpoint::on_read()),
+        ["bp", "add", addr_str, "w"] => parse_and_add_bp(bus, addr_str, Breakpoint::on_write()),
+        ["bp", "add", addr_str, "rw"] => parse_and_add_bp(bus, addr_str, Breakpoint::on_rw()),
+        ["bp", "add", addr_str] => {
+             println!("[DEBUG] Defaulting to Read/Write breakpoint.");
+             parse_and_add_bp(bus, addr_str, Breakpoint::on_rw())
+        },
+        ["bp", "rem", addr_str] => {
+            if let Some(addr) = parse_address(addr_str) {
+                bus.debugger.remove_breakpoint(addr);
+            }
+        },
+        ["bp", "list"] => {
+            println!("[DEBUG] Active Breakpoints:");
+            for addr in bus.debugger.get_breakpoints() {
+                println!("  - {:#06X}", addr);
+            }
+        }
+        
+        ["r" | "read", addr_str] => {
+            if let Some(addr) = parse_address(addr_str) {
+                let val = bus.mem_read_readonly(addr);
+                println!("[DEBUG] Memory at {:#06X} = {:#04X}", addr, val);
+            }
+        }
+        
+        ["w" | "write", addr_str, val_str] => {
+            if let (Some(addr), Some(val)) = (parse_address(addr_str), parse_value(val_str)) {
+                bus.mem_write(addr, val); // This line will now work
+                println!("[DEBUG] Wrote {:#04X} to {:#06X}", val, addr);
+            }
+        }
+        
+        _ => println!("[DEBUG] Unknown command: '{}'", input.trim()),
+    }
+
+    true // Continue
+}
+
+/// Helper to parse "0x1234" or "1234" into u16
+fn parse_address(addr_str: &str) -> Option<u16> {
+    let s = addr_str.trim_start_matches("0x");
+    match u16::from_str_radix(s, 16) {
+        Ok(addr) => Some(addr),
+        Err(e) => {
+            println!("[DEBUG] Invalid address '{}': {}", addr_str, e);
+            None
+        }
+    }
+}
+
+/// Helper to parse "0x1A" or "1A" into u8
+fn parse_value(val_str: &str) -> Option<u8> {
+    let s = val_str.trim_start_matches("0x");
+    match u8::from_str_radix(s, 16) {
+        Ok(val) => Some(val),
+        Err(e) => {
+            println!("[DEBUG] Invalid value '{}': {}", val_str, e);
+            None
+        }
+    }
+}
+
+
+/// Helper to parse and add a breakpoint
+fn parse_and_add_bp(bus: &mut Bus, addr_str: &str, bp: Breakpoint) {
+    if let Some(addr) = parse_address(addr_str) {
+        bus.debugger.add_breakpoint(addr, bp);
     }
 }

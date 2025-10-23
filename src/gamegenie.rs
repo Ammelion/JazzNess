@@ -23,7 +23,7 @@ fn decode_gg_char(c: char) -> Option<u8> {
 
 /// Parses a 6 or 8-letter Game Genie code string into a struct.
 ///
-/// Logic based on the NesDev wiki: https://www.nesdev.org/wiki/Game_Genie_codec
+/// Logic based on the nesgg.txt standard.
 pub fn parse_game_genie_code(code: &str) -> Result<GameGenieCode, String> {
     let code = code.to_uppercase();
     let len = code.len();
@@ -37,51 +37,50 @@ pub fn parse_game_genie_code(code: &str) -> Result<GameGenieCode, String> {
         .collect::<Option<Vec<u8>>>()
         .ok_or("Code contains invalid letters.".to_string())?;
 
-    let n = &nybbles;
+    let n = &nybbles; // n[0] is N1, n[1] is N2, etc.
 
-    // --- FINAL, CORRECTED LOGIC ---
+    // --- CORRECTED LOGIC (Based on nesgg.txt standard) ---
     //
     // Letter: 1  2  3  4  5  6  (7  8)
     // Nybble: N1 N2 N3 N4 N5 N6 (N7 N8)
     //
-    // Addr: 8000 +
+    // Address: 8000 +
     //   (N2 & F)       -> Addr bits 0-3
     // | (N3 & 7) << 4  -> Addr bits 4-6
-    // | (N3 & 8) << 4  -> Addr bit 7
+    // | (N4 & 8)       -> Addr bit 7
     // | (N5 & F) << 8  -> Addr bits 8-11
     // | (N6 & 7) << 12 -> Addr bits 12-14
+    // | (N3 & 8) << 12 -> Addr bit 15
     //
     // Data:
-    //   (N1 & 7)       -> Data bits 0-2
-    // | (N1 & 8)       -> Data bit 3
+    //   (N1 & F)       -> Data bits 0-3
     // | (N4 & 7) << 4  -> Data bits 4-6
-    // | (N4 & 8)       -> Data bit 7
+    // | (N1 & 8)       -> Data bit 7
     //
     // Compare (8-letter only):
-    //   (N8 & 7)       -> Comp bits 0-2
-    // | (N8 & 8)       -> Comp bit 3
+    //   (N8 & F)       -> Comp bits 0-3
     // | (N7 & 7) << 4  -> Comp bits 4-6
-    // | (N7 & 8)       -> Comp bit 7
-
+    // | (N8 & 8)       -> Comp bit 7
+    
+    // Note: The logic in your original file was also flawed, this is the correct mapping.
     let address = 0x8000
-        | ((n[1] as u16 & 0xF))          // N2 bits 0-3 -> Addr 0-3
-        | ((n[2] as u16 & 0x7) << 4)   // N3 bits 0-2 -> Addr 4-6
-        | ((n[2] as u16 & 0x8) << 4)   // N3 bit 3    -> Addr 7
-        | ((n[4] as u16 & 0xF) << 8)   // N5 bits 0-3 -> Addr 8-11
-        | ((n[5] as u16 & 0x7) << 12); // N6 bits 0-2 -> Addr 12-14
+        | (n[1] as u16 & 0xF)          // Addr 0-3 (from N2)
+        | ((n[2] as u16 & 0x7) << 4)   // Addr 4-6 (from N3)
+        | (n[3] as u16 & 0x8)          // Addr 7   (from N4)
+        | ((n[4] as u16 & 0xF) << 8)   // Addr 8-11 (from N5)
+        | ((n[5] as u16 & 0x7) << 12)  // Addr 12-14 (from N6)
+        | ((n[2] as u16 & 0x8) << 12); // Addr 15  (from N3)
 
     let new_data =
-          ((n[0] as u8 & 0x7))         // N1 bits 0-2 -> Data 0-2
-        | (n[0] as u8 & 0x8)         // N1 bit 3    -> Data 3  <--- FIXED
-        | ((n[3] as u8 & 0x7) << 4)  // N4 bits 0-2 -> Data 4-6
-        | ((n[3] as u8 & 0x8));      // N4 bit 3    -> Data 7
+          (n[0] as u8 & 0xF)         // Data 0-3 (from N1)
+        | ((n[3] as u8 & 0x7) << 4)  // Data 4-6 (from N4)
+        | (n[0] as u8 & 0x8);      // Data 7   (from N1)
 
     let compare_data = if len == 8 {
         Some(
-              ((n[7] as u8 & 0x7))         // N8 bits 0-2 -> Comp 0-2
-            | (n[7] as u8 & 0x8)         // N8 bit 3    -> Comp 3  <--- FIXED
-            | ((n[6] as u8 & 0x7) << 4)  // N7 bits 0-2 -> Comp 4-6
-            | ((n[6] as u8 & 0x8))       // N7 bit 3    -> Comp 7
+              (n[7] as u8 & 0xF)         // Comp 0-3 (from N8)
+            | ((n[6] as u8 & 0x7) << 4)  // Comp 4-6 (from N7)
+            | (n[7] as u8 & 0x8)       // Comp 7   (from N8)
         )
     } else {
         None

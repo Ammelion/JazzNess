@@ -2,7 +2,7 @@
 
 use crate::apu::Apu;
 use crate::cartridge::Rom;
-// --- ADD THIS IMPORT ---
+use crate::debugger::Debugger;
 use crate::gamegenie::GameGenieCode;
 use crate::joypad::Joypad;
 use crate::ppu::NesPPU;
@@ -33,45 +33,41 @@ pub struct Bus<'call> {
     cpu_vram: [u8; 2048],
     rom: Rom,
     ppu: NesPPU,
-    pub apu: Apu, // APU struct added to the Bus
+    pub apu: Apu,
     cycles: usize,
     nmi_interrupt: Option<u8>,
     irq_interrupt: Option<u8>,
     pub joypad1: Joypad,
     pub joypad2: Joypad,
-    // Gameloop callback signature updated to include Apu
     gameloop_callback: Box<dyn FnMut(&NesPPU, &mut Joypad, &mut Apu) + 'call>,
-    
-    // --- ADD THIS FIELD ---
     game_genie_codes: Vec<GameGenieCode>,
+    
+    pub debugger: Debugger,
 }
 
 impl<'call> Bus<'call> {
-    // CHANGED: Update the new function and its signature to accept the new callback
     pub fn new<F>(rom: Rom, gameloop_callback: F) -> Self
     where
-        F: FnMut(&NesPPU, &mut Joypad, &mut Apu) + 'call, // Updated signature
+        F: FnMut(&NesPPU, &mut Joypad, &mut Apu) + 'call,
     {
         let ppu = NesPPU::new(rom.chr_rom.clone(), rom.screen_mirroring.clone());
         Bus {
             cpu_vram: [0; 2048],
             rom,
             ppu,
-            apu: Apu::new(), // Initialize the APU
+            apu: Apu::new(),
             cycles: 0,
             nmi_interrupt: None,
             irq_interrupt: None,
             joypad1: Joypad::new(),
             joypad2: Joypad::new(),
             gameloop_callback: Box::from(gameloop_callback),
-            
-            // --- INITIALIZE THE NEW FIELD ---
             game_genie_codes: Vec::new(),
+
+            debugger: Debugger::new(),
         }
     }
-    
-    // --- ADD THIS NEW PUBLIC METHOD ---
-    /// Sets the list of active Game Genie codes.
+
     pub fn set_game_genie_codes(&mut self, codes: Vec<GameGenieCode>) {
         self.game_genie_codes = codes;
     }
@@ -83,13 +79,9 @@ impl<'call> Bus<'call> {
             data[i] = self.mem_read(start_addr + i as u16);
         }
         self.ppu.write_oam_dma(&data);
-
-        // DMA transfer is not instant. It stalls the CPU for 513 or 514 cycles.
-        // We'll use 513 for simplicity.
         self.tick(513);
     }
-    
-    // --- THIS IS THE NEWLY RENAMED RAW READ FUNCTION ---
+
     fn read_prg_rom_raw(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
         if self.rom.prg_rom.len() == 0x4000 && addr >= 0x4000 {
@@ -98,25 +90,17 @@ impl<'call> Bus<'call> {
         self.rom.prg_rom[addr as usize]
     }
 
-    // --- THIS IS THE MODIFIED FUNCTION WITH GAME GENIE LOGIC ---
     fn read_prg_rom(&self, addr: u16) -> u8 {
-        // Check for an active Game Genie code at this address
         for code in &self.game_genie_codes {
             if code.address == addr {
-                // Address matches. Check if it's a conditional code.
                 if let Some(compare_data) = code.compare_data {
-                    // It is. We must read the *actual* ROM data to compare.
                     let actual_data = self.read_prg_rom_raw(addr);
                     if actual_data == compare_data {
-                        // Condition matches, return the new data
                         return code.new_data;
                     } else {
-                        // Condition failed, break from the code loop
-                        // and fall through to return the raw ROM data.
-                        break;
+                        continue;
                     }
                 } else {
-                    // Not a conditional code. Just return the new data.
                     return code.new_data;
                 }
             }
@@ -128,15 +112,10 @@ impl<'call> Bus<'call> {
 
     pub fn tick(&mut self, cycles: usize) {
         self.cycles += cycles;
-
-        // Clock the APU by the number of CPU cycles
         self.apu.tick(cycles);
-
-        // PPU runs 3x faster than CPU
         let frame_complete = self.ppu.tick(cycles * 3);
 
         if frame_complete {
-            // Pass the APU to the gameloop callback
             (self.gameloop_callback)(&self.ppu, &mut self.joypad1, &mut self.apu);
         }
 
@@ -152,18 +131,19 @@ impl<'call> Bus<'call> {
     pub fn poll_nmi_status(&mut self) -> Option<u8> {
         self.nmi_interrupt.take()
     }
-    
-    pub fn poll_irq_status(&mut self) -> Option<u8> { // <--- ADD THIS FUNCTION
+
+    pub fn poll_irq_status(&mut self) -> Option<u8> {
         self.irq_interrupt.take()
     }
 
     pub fn mem_read_readonly(&self, addr: u16) -> u8 {
+        self.debugger.check_read(addr);
+
         match addr {
             RAM..=RAM_MIRRORS_END => {
                 let mirror_down_addr = addr & 0x07FF;
                 self.cpu_vram[mirror_down_addr as usize]
             }
-            // --- MODIFIED TO USE THE PATCHING FUNCTION ---
             0x8000..=0xFFFF => self.read_prg_rom(addr),
             _ => 0,
         }
@@ -178,6 +158,8 @@ impl<'call> Bus<'call> {
 
 impl<'a> Mem for Bus<'a> {
     fn mem_read(&mut self, addr: u16) -> u8 {
+        self.debugger.check_read(addr);
+
         match addr {
             RAM..=RAM_MIRRORS_END => {
                 let mirror_down_addr = addr & 0x07FF;
@@ -191,20 +173,17 @@ impl<'a> Mem for Bus<'a> {
                     _ => 0,
                 }
             }
-
-            // APU/Joypad range
-            0x4015 => self.apu.mem_read(addr), // APU Status Read
+            0x4015 => self.apu.mem_read(addr),
             0x4016 => self.joypad1.read(),
             0x4017 => self.joypad2.read(),
-            // End APU/Joypad range
-
-            // --- MODIFIED TO USE THE PATCHING FUNCTION ---
             0x8000..=0xFFFF => self.read_prg_rom(addr),
-            _ => 0, // Other APU regs ($4000-$4013) are write-only
+            _ => 0,
         }
     }
 
     fn mem_write(&mut self, addr: u16, data: u8) {
+        self.debugger.check_write(addr, data);
+
         match addr {
             RAM..=RAM_MIRRORS_END => {
                 let mirror_down_addr = addr & 0x07FF;
@@ -223,20 +202,14 @@ impl<'a> Mem for Bus<'a> {
                     _ => { /* Unimplemented */ }
                 }
             }
-
-            // APU/Joypad range
-            // Delegate $4000-$4013, $4015, $4017 to the APU
             0x4000..=0x4013 | 0x4015 | 0x4017 => {
                 self.apu.mem_write(addr, data);
             }
-            0x4014 => self.dma_transfer(data), // OAM DMA
+            0x4014 => self.dma_transfer(data),
             0x4016 => {
-                // Joypad strobe
                 self.joypad1.write(data);
                 self.joypad2.write(data);
             }
-            // End APU/Joypad range
-
             0x8000..=0xFFFF => { /* Cannot write to ROM */ }
             _ => { /* Ignoring write */ }
         }
