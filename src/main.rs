@@ -24,6 +24,7 @@ struct JazzNessApp {
     emulator_tx: Option<mpsc::Sender<EmulatorCommand>>,
     emulator_thread: Option<thread::JoinHandle<()>>,
     game_genie_codes: Vec<String>,
+    cpu_tracing_enabled: bool,
 }
 
 impl Default for JazzNessApp {
@@ -32,6 +33,7 @@ impl Default for JazzNessApp {
             emulator_tx: None,
             emulator_thread: None,
             game_genie_codes: vec!["".to_string(); 6],
+            cpu_tracing_enabled: false,
         }
     }
 }
@@ -187,6 +189,12 @@ impl eframe::App for JazzNessApp {
 
                     // You could add more buttons here later, e.g., to
                     // send breakpoint commands from the GUI
+
+                    ui.separator();
+                    if ui.add_enabled(is_running, egui::Checkbox::new(&mut self.cpu_tracing_enabled, "Enable CPU Trace")).changed() {
+                        println!("GUI: Setting CPU Tracing to {}", self.cpu_tracing_enabled);
+                        self.send_command(EmulatorCommand::SetTracing(self.cpu_tracing_enabled));
+                    }
                 });
                 // --- END ADDED ---
             });

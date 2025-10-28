@@ -1,6 +1,7 @@
 use crate::bus::{Bus, Mem};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::cell::Cell;
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -38,6 +39,7 @@ pub struct CPU<'call> {
     pub status: u8,
     pub program_counter: u16,
     pub bus: Bus<'call>,
+    pub last_instruction_trace: String,
 }
 pub struct OpCode {
     pub code: u8,
@@ -335,6 +337,7 @@ impl<'call> CPU<'call> {
             status: INTERRUPT_DISABLE | BREAK_COMMAND_2,
             program_counter: 0,
             bus,
+            last_instruction_trace: String::new(),
         }
     }
     // --- Private Helper Methods now use the Bus ---
@@ -525,8 +528,7 @@ impl<'call> CPU<'call> {
         self.update_zero_and_negative_flags(register.wrapping_sub(value));
     }
 
-    pub fn run_with_callback<F>(&mut self, mut callback: F)
-    where
+    pub fn run_with_callback<F>(&mut self, mut callback: F, tracing_enabled: &Cell<bool>)    where
         F: FnMut(&mut CPU) -> bool,
     {
         let ref opcodes: HashMap<u8, &'static OpCode> =
@@ -548,6 +550,12 @@ impl<'call> CPU<'call> {
                 }
             }
 
+            if tracing_enabled.get() {
+                self.last_instruction_trace = self.trace(); // ONLY generate trace if enabled
+                println!("{}", self.last_instruction_trace);
+            } else {
+                self.last_instruction_trace.clear();
+            }
             //println!("{}", self.trace());
             if !callback(self) {
                 break; // If callback returns false, stop this CPU loop.
