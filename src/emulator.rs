@@ -332,10 +332,9 @@ fn handle_debug_prompt(cpu: &mut CPU) -> bool {
         _ => println!("[DEBUG] Unknown command: '{}'", input.trim()),
     }
 
-    true // Continue
+    true 
 }
 
-/// Helper to parse "0x1234" or "1234" into u16
 fn parse_address(addr_str: &str) -> Option<u16> {
     let s = addr_str.trim_start_matches("0x");
     match u16::from_str_radix(s, 16) {
@@ -347,7 +346,6 @@ fn parse_address(addr_str: &str) -> Option<u16> {
     }
 }
 
-/// Helper to parse "0x1A" or "1A" into u8
 fn parse_value(val_str: &str) -> Option<u8> {
     let s = val_str.trim_start_matches("0x");
     match u8::from_str_radix(s, 16) {
@@ -359,11 +357,8 @@ fn parse_value(val_str: &str) -> Option<u8> {
     }
 }
 
-
-/// Helper to parse and add a breakpoint
 fn parse_and_add_bp(bus: &mut Bus, addr_str: &str, bp: Breakpoint) {
     if let Some(addr) = parse_address(addr_str) {
         bus.debugger.add_breakpoint(addr, bp);
     }
 }
-// <-- NO EXTRA BRACE HERE

@@ -1,13 +1,8 @@
-// In src/apu.rs
-
 use std::collections::VecDeque;
 
-// --- Constants ---
-const CPU_CLOCK_HZ: f64 = 1_789_773.0; // NTSC
+const CPU_CLOCK_HZ: f64 = 1_789_773.0; 
 const AUDIO_SAMPLE_RATE: f64 = 44100.0;
 const CYCLES_PER_SAMPLE: f64 = CPU_CLOCK_HZ / AUDIO_SAMPLE_RATE;
-
-// --- Lookup Tables ---
 
 const LENGTH_COUNTER_TABLE: [u8; 32] = [
     10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22,
@@ -15,10 +10,10 @@ const LENGTH_COUNTER_TABLE: [u8; 32] = [
 ];
 
 const PULSE_DUTY_TABLE: [[u8; 8]; 4] = [
-    [0, 1, 0, 0, 0, 0, 0, 0], // 12.5%
-    [0, 1, 1, 0, 0, 0, 0, 0], // 25%
-    [0, 1, 1, 1, 1, 0, 0, 0], // 50%
-    [1, 0, 0, 1, 1, 1, 1, 1], // 25% negated
+    [0, 1, 0, 0, 0, 0, 0, 0],
+    [0, 1, 1, 0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 0, 0, 0],
+    [1, 0, 0, 1, 1, 1, 1, 1],
 ];
 
 const TRIANGLE_WAVE_TABLE: [u8; 32] = [
@@ -26,21 +21,18 @@ const TRIANGLE_WAVE_TABLE: [u8; 32] = [
     12, 13, 14, 15,
 ];
 
-// NTSC Periods
 const NOISE_PERIOD_TABLE: [u16; 16] =
     [4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068];
-
-// --- Sub-components ---
 
 #[derive(Default)]
 struct Envelope {
     start: bool,
     loop_flag: bool,
-    enabled: bool, // true = envelope, false = constant volume
+    enabled: bool,
     period: u8,
     decay_level: u8,
     divider: u8,
-    volume: u8, // Used for constant volume
+    volume: u8,
 }
 
 impl Envelope {
@@ -432,13 +424,12 @@ impl Apu {
     }
 
     fn clock_frame_counter_step(&mut self) {
-        // NTSC approximate cycle counts for frame counter steps
         const STEP1: u32 = 7457;
         const STEP2: u32 = 14913;
         const STEP3: u32 = 22371;
-        const STEP4_4STEP: u32 = 29781; // End of step 4 for 4-step mode
-        const STEP4_5STEP: u32 = 29781; // Step 4 does nothing in 5-step mode
-        const STEP5_5STEP: u32 = 37281; // End of step 5 for 5-step mode
+        const STEP4_4STEP: u32 = 29781; 
+        const STEP4_5STEP: u32 = 29781; 
+        const STEP5_5STEP: u32 = 37281; 
 
         match self.frame_counter_mode {
             FrameCounterMode::Step4 => {
@@ -486,7 +477,6 @@ impl Apu {
         self.pulse2.clock_sweep(2);
     }
 
-    // --- START CORRECTED TICK FUNCTION ---
     pub fn tick(&mut self, cpu_cycles: usize) {
         for _ in 0..cpu_cycles {
             self.cpu_cycle_counter += 1;
@@ -500,26 +490,21 @@ impl Apu {
             }
             self.triangle.clock_timer();
 
-            // Clock Frame Counter Step based on current CPU cycle relative to frame start
             self.clock_frame_counter_step();
             self.frame_counter_cycle += 1;
 
             let reset_cycle = match self.frame_counter_mode {
-                FrameCounterMode::Step4 => 29781, // Resets just before the next step 1
-                FrameCounterMode::Step5 => 37282, // Resets just before the next step 1
+                FrameCounterMode::Step4 => 29781,
+                FrameCounterMode::Step5 => 37282, 
             };
             if self.frame_counter_cycle >= reset_cycle {
                 self.frame_counter_cycle = 0;
-                 // In 5-step mode, quarter and half frame happen *after* reset
                 if self.frame_counter_mode == FrameCounterMode::Step5 {
-                   // This timing might need adjustment based on exact PPU alignment needs
-                   // For now, clocking immediately on reset is a reasonable approximation.
                    self.clock_quarter_frame();
                    self.clock_half_frame();
                 }
             }
 
-            // Audio Sample Generation
             self.sample_accumulator += 1.0;
             while self.sample_accumulator >= CYCLES_PER_SAMPLE {
                 self.sample_accumulator -= CYCLES_PER_SAMPLE;
@@ -530,7 +515,6 @@ impl Apu {
                 let noise_out = self.noise.output() as f32;
                 let dmc_out = 0.0;
 
-                // Mixing
                 let pulse_mix = if pulse1_out == 0.0 && pulse2_out == 0.0 {
                     0.0
                 } else {
@@ -544,8 +528,7 @@ impl Apu {
                 let output_sample_raw = pulse_mix + tnd_mix;
                 let output_sample_scaled = (output_sample_raw * 0.7) - 0.35;
 
-                // High-Pass Filter
-                let alpha = 0.99; // Adjust closer to 1.0 to lower cutoff frequency
+                let alpha = 0.99; 
                 let filtered_output = alpha * (self.last_output_sample + output_sample_scaled - self.last_input_sample);
                 self.last_input_sample = output_sample_scaled;
                 self.last_output_sample = filtered_output;
@@ -554,7 +537,6 @@ impl Apu {
             }
         }
     }
-    // --- END CORRECTED TICK FUNCTION ---
 
     pub fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
@@ -614,12 +596,8 @@ impl Apu {
                     self.frame_interrupt = false;
                 }
 
-                // Reset timing differs slightly based on mode and CPU cycles
-                // For simplicity, reset the main cycle counter here.
-                // A more accurate emulation might delay this slightly.
                 self.frame_counter_cycle = 0;
 
-                // In 5-step mode, writing to $4017 immediately clocks quarter and half frame units.
                 if self.frame_counter_mode == FrameCounterMode::Step5 {
                    self.clock_quarter_frame();
                    self.clock_half_frame();
