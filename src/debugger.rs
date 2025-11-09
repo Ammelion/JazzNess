@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use serde::{Serialize, Deserialize}; // Import
 
 /// Defines the conditions for a breakpoint.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)] // Add Serialize/Deserialize
 pub struct Breakpoint {
     pub on_read: bool,
     pub on_write: bool,
@@ -14,23 +15,19 @@ pub struct Breakpoint {
 }
 
 impl Breakpoint {
-    /// Creates a breakpoint that triggers on read access.
+    // ... (no changes to methods) ...
     pub fn on_read() -> Self {
         Self {
             on_read: true,
             on_write: false,
         }
     }
-
-    /// Creates a breakpoint that triggers on write access.
     pub fn on_write() -> Self {
         Self {
             on_read: false,
             on_write: true,
         }
     }
-
-    /// Creates a breakpoint that triggers on read or write access.
     pub fn on_rw() -> Self {
         Self {
             on_read: true,
@@ -38,6 +35,15 @@ impl Breakpoint {
         }
     }
 }
+
+// --- ADD THIS STRUCT ---
+#[derive(Serialize, Deserialize)]
+pub struct DebuggerState {
+    breakpoints: HashMap<u16, Breakpoint>,
+    paused: bool,
+}
+// --- END STRUCT ---
+
 
 /// The main Debugger struct.
 /// It holds the breakpoints and a shared flag to signal the emulator to pause.
@@ -97,6 +103,20 @@ impl Debugger {
             }
         }
     }
+
+    // --- ADD THESE METHODS ---
+    pub fn save_state(&self) -> DebuggerState {
+        DebuggerState {
+            breakpoints: self.breakpoints.clone(),
+            paused: self.paused.load(Ordering::SeqCst),
+        }
+    }
+
+    pub fn load_state(&mut self, state: &DebuggerState) {
+        self.breakpoints = state.breakpoints.clone();
+        self.paused.store(state.paused, Ordering::SeqCst);
+    }
+    // --- END METHODS ---
 }
 
 impl Default for Debugger {

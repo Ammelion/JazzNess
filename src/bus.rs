@@ -1,11 +1,10 @@
-// In src/bus.rs
-
-use crate::apu::Apu;
+use crate::apu::{Apu, ApuState};
 use crate::cartridge::Rom;
-use crate::debugger::Debugger;
+use crate::debugger::{Debugger, DebuggerState};
 use crate::gamegenie::GameGenieCode;
-use crate::joypad::Joypad;
-use crate::ppu::NesPPU;
+use crate::joypad::{Joypad, JoypadState};
+use crate::ppu::{NesPPU, PpuState};
+use serde::{Serialize, Deserialize};
 
 pub trait Mem {
     fn mem_read(&mut self, addr: u16) -> u8;
@@ -28,6 +27,20 @@ pub trait Mem {
 const RAM: u16 = 0x0000;
 const RAM_MIRRORS_END: u16 = 0x1FFF;
 const PPU_REGISTERS_MIRRORS_END: u16 = 0x3FFF;
+
+#[derive(Serialize, Deserialize)]
+pub struct BusState {
+    cpu_vram: Vec<u8>,
+    ppu: PpuState,
+    apu: ApuState,
+    cycles: usize,
+    nmi_interrupt: Option<u8>,
+    irq_interrupt: Option<u8>,
+    joypad1: JoypadState,
+    joypad2: JoypadState,
+    game_genie_codes: Vec<GameGenieCode>,
+    debugger: DebuggerState,
+}
 
 pub struct Bus<'call> {
     cpu_vram: [u8; 2048],
@@ -106,7 +119,6 @@ impl<'call> Bus<'call> {
             }
         }
 
-        // No matching/triggered codes. Read from ROM as normal.
         self.read_prg_rom_raw(addr)
     }
 
@@ -153,6 +165,34 @@ impl<'call> Bus<'call> {
         let lo = self.mem_read_readonly(pos) as u16;
         let hi = self.mem_read_readonly(pos + 1) as u16;
         (hi << 8) | lo
+    }
+    
+    pub fn save_state(&self) -> BusState {
+        BusState {
+            cpu_vram: self.cpu_vram.to_vec(),
+            ppu: self.ppu.save_state(),
+            apu: self.apu.save_state(),
+            cycles: self.cycles,
+            nmi_interrupt: self.nmi_interrupt,
+            irq_interrupt: self.irq_interrupt,
+            joypad1: self.joypad1.save_state(),
+            joypad2: self.joypad2.save_state(),
+            game_genie_codes: self.game_genie_codes.clone(),
+            debugger: self.debugger.save_state(),
+        }
+    }
+
+    pub fn load_state(&mut self, state: &BusState) {
+        self.cpu_vram.copy_from_slice(&state.cpu_vram);
+        self.ppu.load_state(&state.ppu);
+        self.apu.load_state(&state.apu);
+        self.cycles = state.cycles;
+        self.nmi_interrupt = state.nmi_interrupt;
+        self.irq_interrupt = state.irq_interrupt;
+        self.joypad1.load_state(&state.joypad1);
+        self.joypad2.load_state(&state.joypad2);
+        self.game_genie_codes = state.game_genie_codes.clone();
+        self.debugger.load_state(&state.debugger);
     }
 }
 

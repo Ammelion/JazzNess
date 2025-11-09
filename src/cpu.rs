@@ -1,7 +1,8 @@
-use crate::bus::{Bus, Mem};
+use crate::bus::{Bus, Mem, BusState};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::cell::Cell;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -49,7 +50,22 @@ pub struct OpCode {
     pub mode: AddressingMode,
 }
 
-// NOTE: The `impl Mem for CPU` block is now removed as it's no longer needed.
+#[derive(Serialize, Deserialize)]
+struct CpuState {
+    register_a: u8,
+    register_x: u8,
+    register_y: u8,
+    stack_pointer: u8,
+    status: u8,
+    program_counter: u16,
+    last_instruction_trace: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EmulatorSnapshot {
+    cpu: CpuState,
+    bus: BusState,
+}
 
 impl OpCode {
     fn new(code: u8, name: &'static str, bytes: u8, cycles: u8, mode: AddressingMode) -> Self {
@@ -1046,5 +1062,38 @@ impl<'call> CPU<'call> {
         .to_string()
     }
 
-}
+    // --- ADD THESE METHODS ---
+    fn save_state(&self) -> CpuState {
+        CpuState {
+            register_a: self.register_a,
+            register_x: self.register_x,
+            register_y: self.register_y,
+            stack_pointer: self.stack_pointer,
+            status: self.status,
+            program_counter: self.program_counter,
+            last_instruction_trace: self.last_instruction_trace.clone(),
+        }
+    }
 
+    fn load_state(&mut self, state: &CpuState) {
+        self.register_a = state.register_a;
+        self.register_x = state.register_x;
+        self.register_y = state.register_y;
+        self.stack_pointer = state.stack_pointer;
+        self.status = state.status;
+        self.program_counter = state.program_counter;
+        self.last_instruction_trace = state.last_instruction_trace.clone();
+    }
+    
+    pub fn save_snapshot(&self) -> EmulatorSnapshot {
+        EmulatorSnapshot {
+            cpu: self.save_state(),
+            bus: self.bus.save_state(),
+        }
+    }
+
+    pub fn load_snapshot(&mut self, snapshot: &EmulatorSnapshot) {
+        self.load_state(&snapshot.cpu);
+        self.bus.load_state(&snapshot.bus);
+    }
+}

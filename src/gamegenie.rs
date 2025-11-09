@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::{Serialize, Deserialize};
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+
 pub struct GameGenieCode {
     pub address: u16,
     pub new_data: u8,

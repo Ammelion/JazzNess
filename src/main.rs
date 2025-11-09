@@ -9,7 +9,7 @@ mod apu;
 mod bus;
 mod cartridge;
 mod cpu;
-mod debugger; // --- ADDED: Make sure debugger mod is registered ---
+mod debugger;
 mod emulator;
 mod gamegenie;
 mod joypad;
@@ -25,6 +25,7 @@ struct JazzNessApp {
     emulator_thread: Option<thread::JoinHandle<()>>,
     game_genie_codes: Vec<String>,
     cpu_tracing_enabled: bool,
+    current_rom_path: Option<String>, // Store the path of the loaded ROM
 }
 
 impl Default for JazzNessApp {
@@ -34,12 +35,16 @@ impl Default for JazzNessApp {
             emulator_thread: None,
             game_genie_codes: vec!["".to_string(); 6],
             cpu_tracing_enabled: false,
+            current_rom_path: None, // Initially no ROM is loaded
         }
     }
 }
 
 impl JazzNessApp {
     fn start_emulator(&mut self, rom_path: String) {
+        // Store the ROM path
+        self.current_rom_path = Some(rom_path.clone());
+
         if let Some(tx) = self.emulator_tx.take() {
             if let Some(handle) = self.emulator_thread.take() {
                 if tx.send(EmulatorCommand::LoadRom(rom_path.clone())).is_err() {
@@ -67,7 +72,6 @@ impl JazzNessApp {
         self.emulator_thread = Some(emulator_handle);
     }
 
-    // --- ADDED: Helper to send commands ---
     fn send_command(&self, command: EmulatorCommand) {
         if let Some(tx) = &self.emulator_tx {
             if let Err(e) = tx.send(command) {
@@ -77,10 +81,23 @@ impl JazzNessApp {
             println!("No emulator running, ignoring command.");
         }
     }
+
+    // Helper to get a default save/load path
+    fn get_default_state_path(&self) -> String {
+        if let Some(rom_path) = &self.current_rom_path {
+            if let Some(stem) = std::path::Path::new(rom_path).file_stem() {
+                return format!("{}.state", stem.to_str().unwrap_or("jazzness"));
+            }
+        }
+        "jazzness.state".to_string()
+    }
 }
 
 impl eframe::App for JazzNessApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Check if an emulator is running (for enabling/disabling menu items)
+        let is_running = self.emulator_tx.is_some();
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -108,6 +125,43 @@ impl eframe::App for JazzNessApp {
                             }
                         }
                     }
+                    
+                    ui.separator();
+
+                    // --- SAVE STATE BUTTON ---
+                    if ui.add_enabled(is_running, egui::Button::new("Save State...")).clicked() {
+                        ui.close_menu();
+                        let default_path = self.get_default_state_path();
+                        let result = FileDialog::new()
+                            .set_filename(&default_path)
+                            .add_filter("Save State", &["state"])
+                            .show_save_single_file();
+                        
+                        if let Ok(Some(path)) = result {
+                            if let Some(path_str) = path.to_str() {
+                                self.send_command(EmulatorCommand::SaveState(path_str.to_string()));
+                            }
+                        }
+                    }
+
+                    // --- LOAD STATE BUTTON ---
+                    if ui.add_enabled(is_running, egui::Button::new("Load State...")).clicked() {
+                        ui.close_menu();
+                        let default_path = self.get_default_state_path();
+                        let result = FileDialog::new()
+                            .set_filename(&default_path)
+                            .add_filter("Save State", &["state"])
+                            .show_open_single_file();
+
+                        if let Ok(Some(path)) = result {
+                            if let Some(path_str) = path.to_str() {
+                                self.send_command(EmulatorCommand::LoadState(path_str.to_string()));
+                            }
+                        }
+                    }
+
+                    ui.separator();
+
                     if ui.button("Exit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -157,12 +211,11 @@ impl eframe::App for JazzNessApp {
                                 .unwrap();
                         }
 
-                        // --- MODIFIED: Use the helper function ---
                         if !parsed_codes.is_empty() {
                             self.send_command(EmulatorCommand::SetGameGenieCodes(parsed_codes));
                         }
 
-                        if error_messages.is_empty() && self.emulator_tx.is_none() {
+                        if error_messages.is_empty() && !is_running {
                              native_dialog::MessageDialog::new()
                                 .set_type(native_dialog::MessageType::Warning)
                                 .set_title("Game Genie Warning")
@@ -175,20 +228,12 @@ impl eframe::App for JazzNessApp {
                     }
                 });
                 
-                // --- ADDED: A new menu for the debugger ---
                 ui.menu_button("Debug", |ui| {
-                    // Check if an emulator is running
-                    let is_running = self.emulator_tx.is_some();
-                    
-                    // Add the "Pause" button
                     if ui.add_enabled(is_running, egui::Button::new("Pause")).clicked() {
                         println!("GUI: Sending Pause command.");
                         self.send_command(EmulatorCommand::Pause);
                         ui.close_menu();
                     }
-
-                    // You could add more buttons here later, e.g., to
-                    // send breakpoint commands from the GUI
 
                     ui.separator();
                     if ui.add_enabled(is_running, egui::Checkbox::new(&mut self.cpu_tracing_enabled, "Enable CPU Trace")).changed() {
@@ -196,7 +241,6 @@ impl eframe::App for JazzNessApp {
                         self.send_command(EmulatorCommand::SetTracing(self.cpu_tracing_enabled));
                     }
                 });
-                // --- END ADDED ---
             });
         });
 

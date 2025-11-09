@@ -1,7 +1,6 @@
-// In src/ppu.rs
-
 use crate::cartridge::Mirroring;
 use bitflags::bitflags;
+use serde::{Serialize, Deserialize};
 
 bitflags! {
     pub struct ControlRegister: u8 {
@@ -35,6 +34,13 @@ bitflags! {
         const SPRITE_0_HIT      = 0b0100_0000;
         const VBLANK_STARTED    = 0b1000_0000;
     }
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct ScrollRegisterState {
+    scroll_x: u8,
+    scroll_y: u8,
+    write_latch: bool,
 }
 
 #[derive(Default)]
@@ -88,6 +94,12 @@ impl ControlRegister {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct AddrRegisterState {
+    value: u16,
+    write_latch: bool,
+}
+
 pub struct AddrRegister {
     value: u16,
     write_latch: bool, 
@@ -129,6 +141,18 @@ impl AddrRegister {
     pub fn get(&self) -> u16 {
         self.value
     }
+    
+    fn save_state(&self) -> AddrRegisterState {
+        AddrRegisterState {
+            value: self.value,
+            write_latch: self.write_latch,
+        }
+    }
+    
+    fn load_state(&mut self, state: &AddrRegisterState) {
+        self.value = state.value;
+        self.write_latch = state.write_latch;
+    }
 }
 
 impl ScrollRegister {
@@ -152,6 +176,37 @@ impl ScrollRegister {
     pub fn reset_latch(&mut self) {
         self.write_latch = false;
     }
+    
+    fn save_state(&self) -> ScrollRegisterState {
+        ScrollRegisterState {
+            scroll_x: self.scroll_x,
+            scroll_y: self.scroll_y,
+            write_latch: self.write_latch,
+        }
+    }
+
+    fn load_state(&mut self, state: &ScrollRegisterState) {
+        self.scroll_x = state.scroll_x;
+        self.scroll_y = state.scroll_y;
+        self.write_latch = state.write_latch;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PpuState {
+    ctrl: u8,
+    mask: u8,
+    status: u8,
+    scroll: ScrollRegisterState,
+    vram: Vec<u8>,
+    oam_addr: u8,
+    oam_data: Vec<u8>,
+    palette_table: [u8; 32],
+    addr: AddrRegisterState,
+    internal_data_buf: u8,
+    scanline: u16,
+    cycles: usize,
+    nmi_interrupt: Option<u8>,
 }
 
 pub struct NesPPU {
@@ -271,7 +326,6 @@ impl NesPPU {
 
     pub fn write_to_oam_data(&mut self, value: u8) {
         self.oam_data[self.oam_addr as usize] = value;
-        // OAM address increments after write
         self.oam_addr = self.oam_addr.wrapping_add(1);
     }
     pub fn read_oam_data(&self) -> u8 {
@@ -381,5 +435,39 @@ impl NesPPU {
 
     pub fn peek_status(&self) -> u8 {
         self.status.bits()
+    }
+    
+    pub fn save_state(&self) -> PpuState {
+        PpuState {
+            ctrl: self.ctrl.bits(),
+            mask: self.mask.bits(),
+            status: self.status.bits(),
+            scroll: self.scroll.save_state(),
+            vram: self.vram.to_vec(),
+            oam_addr: self.oam_addr,
+            oam_data: self.oam_data.to_vec(),
+            palette_table: self.palette_table,
+            addr: self.addr.save_state(),
+            internal_data_buf: self.internal_data_buf,
+            scanline: self.scanline,
+            cycles: self.cycles,
+            nmi_interrupt: self.nmi_interrupt,
+        }
+    }
+
+    pub fn load_state(&mut self, state: &PpuState) {
+        self.ctrl = ControlRegister::from_bits_truncate(state.ctrl);
+        self.mask = MaskRegister::from_bits_truncate(state.mask);
+        self.status = StatusRegister::from_bits_truncate(state.status);
+        self.scroll.load_state(&state.scroll);
+        self.vram.copy_from_slice(&state.vram);
+        self.oam_addr = state.oam_addr;
+        self.oam_data.copy_from_slice(&state.oam_data);
+        self.palette_table = state.palette_table;
+        self.addr.load_state(&state.addr);
+        self.internal_data_buf = state.internal_data_buf;
+        self.scanline = state.scanline;
+        self.cycles = state.cycles;
+        self.nmi_interrupt = state.nmi_interrupt;
     }
 }

@@ -1,14 +1,11 @@
-// In src/emulator.rs
-
 use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
 use std::io::{self, Write};
 use crate::debugger::Breakpoint; 
 
-// --- KEEP ALL IMPORTS ---
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use std::fs::File;
+use std::fs::{self, File}; 
 use std::io::Read;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -19,7 +16,7 @@ use sdl2::audio::AudioSpecDesired;
 
 use crate::bus::Bus;
 use crate::cartridge::Rom;
-use crate::cpu::CPU;
+use crate::cpu::{CPU, EmulatorSnapshot};
 use crate::render::frame::Frame;
 use crate::render;
 use crate::apu;
@@ -35,12 +32,13 @@ pub enum EmulatorCommand {
     LoadRom(String),
     SetGameGenieCodes(Vec<GameGenieCode>),
     Pause,
-    SetTracing(bool), // <-- This is correct
+    SetTracing(bool),
+    SaveState(String),
+    LoadState(String),
 }
 
 pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
 
-    // --- 1. One-time SDL setup ---
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
@@ -65,10 +63,7 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
             .unwrap(),
     ));
 
-    // --- FIX FOR LINE 70 ---
-    // Make sure this line uses `sdl_context.event_pump()`, not `sdl2::event_pump()`
     let event_pump = Rc::new(RefCell::new(sdl_context.event_pump().unwrap()));
-    // --- END FIX ---
 
     let desired_spec = AudioSpecDesired {
         freq: Some(AUDIO_SAMPLE_RATE),
@@ -95,10 +90,8 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
     let rx = Arc::new(Mutex::new(rx));
 
 
-    // --- 2. "Meta-Loop" ---
     loop {
 
-        // --- 3. Wait for command ---
         let command = match rx.lock().unwrap().recv() {
             Ok(cmd) => cmd,
             Err(_) => {
@@ -121,12 +114,15 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
                 println!("Emulator Thread: Ignoring trace command, no ROM loaded.");
                 continue;
             }
+            EmulatorCommand::SaveState(_) | EmulatorCommand::LoadState(_) => {
+                 println!("Emulator Thread: Ignoring save/load state, no ROM loaded.");
+                continue;
+            }
         };
 
         println!("Emulator Thread: Loading ROM: {}", rom_path);
         window_canvas.borrow_mut().window_mut().show();
 
-        // --- 4. Load ROM and set up Bus/CPU ---
         let mut file = File::open(&rom_path)
             .expect(&format!("Failed to open ROM file: {}", rom_path));
         let mut buffer = Vec::new();
@@ -175,7 +171,6 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
         let mut cpu = CPU::new(bus);
         cpu.reset();
 
-        // --- 5. Run the inner emulator loop ---
         let instruction_counter = Cell::new(0u32);
         let tracing_enabled = Rc::new(Cell::new(false));
         let rx_clone = Arc::clone(&rx);
@@ -184,7 +179,7 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
         let window_canvas_clone_callback = Rc::clone(&window_canvas);
 
         let tracing_enabled_clone = Rc::clone(&tracing_enabled);
-        cpu.run_with_callback(move |cpu| { // <-- This call is now correct
+        cpu.run_with_callback(move |cpu| { 
  
             while paused_flag.load(Ordering::SeqCst) {
                 if !handle_debug_prompt(cpu) {
@@ -215,13 +210,44 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
                     println!("[DEBUG] CPU Tracing set to: {}", enabled);
                     tracing_enabled_clone.set(enabled);
                 },
+                
+                Ok(EmulatorCommand::SaveState(path)) => {
+                    println!("[DEBUG] Saving state to {}", path);
+                    let snapshot = cpu.save_snapshot();
+                    match fs::File::create(&path) {
+                        Ok(file) => {
+                            if let Err(e) = bincode::serialize_into(file, &snapshot) {
+                                println!("[ERROR] Failed to serialize and save state: {}", e);
+                            } else {
+                                println!("[DEBUG] State saved successfully.");
+                            }
+                        },
+                        Err(e) => println!("[ERROR] Failed to create save file '{}': {}", path, e),
+                    }
+                },
+ 
+                Ok(EmulatorCommand::LoadState(path)) => {
+                    println!("[DEBUG] Loading state from {}", path);
+                    match fs::File::open(&path) {
+                        Ok(file) => {
+                            match bincode::deserialize_from(file) {
+                                Ok(snapshot) => {
+                                    cpu.load_snapshot(&snapshot);
+                                    println!("[DEBUG] State loaded successfully.");
+                                },
+                                Err(e) => println!("[ERROR] Failed to deserialize state: {}", e),
+                            }
+                        },
+                        Err(e) => println!("[ERROR] Failed to open save file '{}': {}", path, e),
+                    }
+                },
  
                 Err(mpsc::TryRecvError::Disconnected) => {
                     println!("Emulator Thread: Menu closed, stopping program.");
                     window_canvas_clone_callback.borrow_mut().window_mut().hide();
                     std::process::exit(0);
                 },
-                Err(mpsc::TryRecvError::Empty) => { /* No new command */ }
+                Err(mpsc::TryRecvError::Empty) => { }
             }
  
             let count = instruction_counter.get();
@@ -263,16 +289,11 @@ pub fn run_emulator(rx: mpsc::Receiver<EmulatorCommand>) {
 }
 
 
-// --- DEBUGGER HELPER FUNCTIONS ---
-
-/// A helper function to manage the interactive debug prompt.
 fn handle_debug_prompt(cpu: &mut CPU) -> bool {
     println!("[DEBUG] Breakpoint HIT. Last instruction executed:");
     if cpu.last_instruction_trace.is_empty() {
-        // We need to call trace() here because it wasn't called in the main loop
         println!("{}", cpu.trace());
     } else {
-        // Tracing was on, so the stored trace is correct
         println!("{}", cpu.last_instruction_trace);
     }
 

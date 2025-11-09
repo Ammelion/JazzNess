@@ -1,4 +1,5 @@
 use bitflags::bitflags;
+use serde::{Serialize, Deserialize}; // Import
 
 bitflags! {
     #[derive(Copy, Clone)]
@@ -13,6 +14,15 @@ bitflags! {
         const RIGHT             = 0b10000000;
     }
 }
+
+// --- ADD THIS STRUCT ---
+#[derive(Serialize, Deserialize)]
+pub struct JoypadState {
+    strobe: bool,
+    button_index: u8,
+    button_status: u8, // Store the raw bits
+}
+// --- END STRUCT ---
 
 pub struct Joypad {
     strobe: bool,     
@@ -60,4 +70,19 @@ impl Joypad {
         (self.button_status.bits() >> self.button_index) & 1
     }
 
+    // --- ADD THESE METHODS ---
+    pub fn save_state(&self) -> JoypadState {
+        JoypadState {
+            strobe: self.strobe,
+            button_index: self.button_index,
+            button_status: self.button_status.bits(),
+        }
+    }
+
+    pub fn load_state(&mut self, state: &JoypadState) {
+        self.strobe = state.strobe;
+        self.button_index = state.button_index;
+        self.button_status = JoypadButton::from_bits_truncate(state.button_status);
+    }
+    // --- END METHODS ---
 }
