@@ -15,27 +15,12 @@
         pkgs = import nixpkgs { inherit system; };
         naersk-lib = pkgs.callPackage naersk { };
         
-        allBuildInputs = with pkgs; [
-          # Rust tools
-          cargo
-          rust-analyzer
-          rustc
-          rustfmt
-          
-          # Your original dev tools
-          cargo-insta
-          pre-commit
-          rustPackages.clippy
-          tokei
-        
-          # --- SDL2 Dependencies (for emulator) ---
+        # 1. Runtime Libraries (Needed to run the app)
+        runtimeDeps = with pkgs; [
           SDL2
           SDL2_image
           SDL2_ttf
           SDL2_mixer
-          
-          # --- eframe Dependencies (for menu) ---
-          pkg-config
           wayland
           libxkbcommon
           xorg.libX11
@@ -49,35 +34,50 @@
           libGL
           glibcLocales
           xorg.xkeyboardconfig
-
-          # --- THIS IS THE FIX ---
-          # Add the program that native-dialog uses
-          zenity 
+          zenity # Needed for native-dialog
         ];
-        
-        libPath = with pkgs; lib.makeLibraryPath allBuildInputs;
+
+        # 2. Build Tools (Needed to compile the app)
+        buildDeps = with pkgs; [
+          pkg-config
+          makeWrapper
+        ];
+
+        # 3. Development Tools (ONLY for your shell, not the build)
+        devDeps = with pkgs; [
+          cargo
+          rustc
+          rust-analyzer
+          rustfmt
+          cargo-insta
+          pre-commit
+          rustPackages.clippy
+          tokei
+        ];
+
+        libPath = with pkgs; lib.makeLibraryPath runtimeDeps;
       in
       {
-        # ... (rest of the file is unchanged) ...
+        # The Package (Clean build, no dev tools)
         defaultPackage = naersk-lib.buildPackage {
           src = ./.;
           doCheck = true;
-          pname = "sixty-two";
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-          buildInputs = with pkgs; [
-            xorg.libxcb
-          ];
+          pname = "nesemu"; 
+          
+          nativeBuildInputs = buildDeps;
+          buildInputs = runtimeDeps;
+
           postInstall = ''
-            wrapProgram "$out/bin/sixty-two" --prefix LD_LIBRARY_PATH : "${libPath}"
+            wrapProgram "$out/bin/nesemu" \
+              --prefix LD_LIBRARY_PATH : "${libPath}" \
+              --prefix PATH : "${pkgs.lib.makeBinPath [ pkgs.zenity ]}"
           '';
         };
 
-        defaultApp = utils.lib.mkApp {
-          drv = self.defaultPackage."${system}";
-        };
-
+        # The Shell (Includes everything: dev tools + build deps + libraries)
         devShell = with pkgs; mkShell {
-          buildInputs = allBuildInputs;
+          buildInputs = runtimeDeps ++ buildDeps ++ devDeps;
+          
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
           LD_LIBRARY_PATH = libPath;
 

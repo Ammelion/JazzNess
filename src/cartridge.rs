@@ -76,8 +76,6 @@ impl Rom {
         }
     }
 
-    // You will need this write method later for more complex mappers.
-    // For Mapper 0, writes to the ROM are ignored.
     pub fn write(&mut self, _addr: u16, _data: u8) {
         match self.mapper {
             0 => { /* Mapper 0 is not writable */ },
